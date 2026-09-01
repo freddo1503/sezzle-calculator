@@ -22,6 +22,7 @@ export * from './calculationAttributes';
 export * from './calculationRequest';
 export * from './calculationResource';
 export * from './calculationResponse';
+export * from './decimal';
 export * from './errorCode';
 export * from './errorDocument';
 export * from './errorObject';

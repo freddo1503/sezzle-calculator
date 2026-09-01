@@ -57,10 +57,10 @@ Feature: Rejecting a request that has no answer
     Then the response status is 422
 
     Examples:
-      | a                                                     | why                     |
-      | abc                                                   | not a number            |
-      | 1e10                                                  | scientific notation     |
-      | 99999999999999999999999999                            | beyond the stated bound |
+      | a                          | why                     |
+      | abc                        | not a number            |
+      | 1..2                       | two decimal points      |
+      | 99999999999999999999999999 | beyond the stated bound |
 
   Scenario: An unknown operation is refused by the contract
     Given a calculation applying "tetrate" to "2" and "3"

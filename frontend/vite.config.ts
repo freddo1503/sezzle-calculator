@@ -28,6 +28,9 @@ export default defineConfig({
   },
 
   test: {
+    // Unit tests only. The end-to-end specs under e2e/ belong to Playwright,
+    // which has its own runner and its own config.
+    include: ["src/**/*.test.{ts,tsx}"],
     environment: "jsdom",
     globals: true,
     setupFiles: "./src/test/setup.ts",

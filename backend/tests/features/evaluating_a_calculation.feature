@@ -86,6 +86,21 @@ Feature: Evaluating a calculation
     When the calculation is submitted
     Then the result is exactly "9.999999999999999999999997E+74"
 
+  Scenario Outline: A result can be fed straight back in as an operand
+    A calculator chains, so operands and results share one grammar. An operand
+    type narrower than the result type would be a service that cannot accept its
+    own output: a third has 28 significant digits and its square would be
+    refused.
+
+    Given a calculation applying "multiply" to "<a>" and "<b>"
+    When the calculation is submitted
+    Then the response status is 200
+
+    Examples:
+      | a                             | b | why                          |
+      | 0.3333333333333333333333333333 | 3 | 28 digits, as division returns |
+      | 9.999E+74                      | 1 | an exponent, as power returns  |
+
   Scenario: The answer comes back as a JSON:API resource
     Given a calculation applying "multiply" to "6" and "7"
     When the calculation is submitted

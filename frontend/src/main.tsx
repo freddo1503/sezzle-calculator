@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { Calculator } from "@/components/Calculator";
 import "./index.css";
 
 const container = document.getElementById("root");
@@ -9,6 +10,6 @@ if (!container) {
 
 createRoot(container).render(
   <StrictMode>
-    <div className="p-8 text-slate-700">Calculator</div>
+    <Calculator />
   </StrictMode>,
 );

@@ -15,7 +15,7 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { BinaryAttributesOperation } from './binaryAttributesOperation';
-import type { Operand } from './operand';
+import type { Decimal } from './decimal';
 
 /**
  * An operation on two operands.
@@ -26,5 +26,5 @@ export interface BinaryAttributes {
      * @minItems 2
      * @maxItems 2
      */
-  operands: Operand[];
+  operands: Decimal[];
 }

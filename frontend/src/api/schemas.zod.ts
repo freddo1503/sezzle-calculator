@@ -27,17 +27,17 @@ import * as zod from 'zod';
  * retrievable record.
  * @summary Evaluate one arithmetic operation.
  */
-export const createCalculationBodyDataAttributesOneOperandsItemMax = 52;
+export const createCalculationBodyDataAttributesOneOperandsItemMax = 64;
 
 
-export const createCalculationBodyDataAttributesOneOperandsItemRegExp = new RegExp('^-?[0-9]{1,25}(\\.[0-9]{1,25})?$');
+export const createCalculationBodyDataAttributesOneOperandsItemRegExp = new RegExp('^-?[0-9]{1,25}(\\.[0-9]{1,30})?([eE][-+]?[0-9]{1,6})?$');
 export const createCalculationBodyDataAttributesOneOperandsMin = 2;
 export const createCalculationBodyDataAttributesOneOperandsMax = 2;
 
-export const createCalculationBodyDataAttributesTwoOperandsItemMax = 52;
+export const createCalculationBodyDataAttributesTwoOperandsItemMax = 64;
 
 
-export const createCalculationBodyDataAttributesTwoOperandsItemRegExp = new RegExp('^-?[0-9]{1,25}(\\.[0-9]{1,25})?$');
+export const createCalculationBodyDataAttributesTwoOperandsItemRegExp = new RegExp('^-?[0-9]{1,25}(\\.[0-9]{1,30})?([eE][-+]?[0-9]{1,6})?$');
 export const createCalculationBodyDataAttributesTwoOperandsMax = 1;
 
 
@@ -47,21 +47,24 @@ export const CreateCalculationBody = zod.object({
   "type": zod.literal("calculations"),
   "attributes": zod.union([zod.object({
   "operation": zod.enum(['add', 'subtract', 'multiply', 'divide', 'percent', 'power']),
-  "operands": zod.array(zod.string().max(createCalculationBodyDataAttributesOneOperandsItemMax).regex(createCalculationBodyDataAttributesOneOperandsItemRegExp).describe('A decimal number in plain notation, at most 25 integer and 25 fractional\ndigits. Scientific notation is not accepted. Rationale in ADR-0004.\n')).min(createCalculationBodyDataAttributesOneOperandsMin).max(createCalculationBodyDataAttributesOneOperandsMax)
+  "operands": zod.array(zod.string().max(createCalculationBodyDataAttributesOneOperandsItemMax).regex(createCalculationBodyDataAttributesOneOperandsItemRegExp).describe('A decimal number: up to 25 integer digits, 30 fractional digits and an\noptional exponent.\n\n\*\*Operands and results share this one grammar, deliberately.\*\* A\ncalculator chains, so every result must be submittable as the next\noperand. An operand type narrower than the result type would make a\nservice that cannot accept its own output: dividing one by three returns\n28 significant digits, and multiplying that by three would be rejected.\n\nThe bounds are stated once here and enforced by both generated layers.\nRationale in ADR-0004.\n')).min(createCalculationBodyDataAttributesOneOperandsMin).max(createCalculationBodyDataAttributesOneOperandsMax)
 }).describe('An operation on two operands.'),zod.object({
   "operation": zod.enum(['sqrt']),
-  "operands": zod.array(zod.string().max(createCalculationBodyDataAttributesTwoOperandsItemMax).regex(createCalculationBodyDataAttributesTwoOperandsItemRegExp).describe('A decimal number in plain notation, at most 25 integer and 25 fractional\ndigits. Scientific notation is not accepted. Rationale in ADR-0004.\n')).min(1).max(createCalculationBodyDataAttributesTwoOperandsMax)
+  "operands": zod.array(zod.string().max(createCalculationBodyDataAttributesTwoOperandsItemMax).regex(createCalculationBodyDataAttributesTwoOperandsItemRegExp).describe('A decimal number: up to 25 integer digits, 30 fractional digits and an\noptional exponent.\n\n\*\*Operands and results share this one grammar, deliberately.\*\* A\ncalculator chains, so every result must be submittable as the next\noperand. An operand type narrower than the result type would make a\nservice that cannot accept its own output: dividing one by three returns\n28 significant digits, and multiplying that by three would be rejected.\n\nThe bounds are stated once here and enforced by both generated layers.\nRationale in ADR-0004.\n')).min(1).max(createCalculationBodyDataAttributesTwoOperandsMax)
 }).describe('An operation on one operand.')]).describe('Discriminated on `operation`, so operand arity is a property of the\ncontract rather than a check written twice. Rationale in ADR-0003.\n')
 }).describe('A calculation as the client states it. No `id`, which JSON:API permits for\na resource originating at the client.\n')
 }).describe('A JSON:API document whose primary data is a new calculation.')
 
-export const createCalculationResponseDataAttributesOperandsItemMax = 52;
+export const createCalculationResponseDataAttributesOperandsItemMax = 64;
 
 
-export const createCalculationResponseDataAttributesOperandsItemRegExp = new RegExp('^-?[0-9]{1,25}(\\.[0-9]{1,25})?$');
+export const createCalculationResponseDataAttributesOperandsItemRegExp = new RegExp('^-?[0-9]{1,25}(\\.[0-9]{1,30})?([eE][-+]?[0-9]{1,6})?$');
 export const createCalculationResponseDataAttributesOperandsMax = 2;
 
-export const createCalculationResponseDataAttributesResultRegExp = new RegExp('^-?[0-9]+(\\.[0-9]+)?([eE][-+]?[0-9]+)?$');
+export const createCalculationResponseDataAttributesResultOneMax = 64;
+
+
+export const createCalculationResponseDataAttributesResultOneRegExp = new RegExp('^-?[0-9]{1,25}(\\.[0-9]{1,30})?([eE][-+]?[0-9]{1,6})?$');
 
 
 export const CreateCalculationResponse = zod.object({
@@ -70,8 +73,8 @@ export const CreateCalculationResponse = zod.object({
   "id": zod.uuid().describe('Assigned by the server to identify this evaluation. It is not a\nretrievable record: nothing is stored, so no `self` link is offered\nand no `GET` will find it.\n'),
   "attributes": zod.object({
   "operation": zod.enum(['add', 'subtract', 'multiply', 'divide', 'power', 'percent', 'sqrt']),
-  "operands": zod.array(zod.string().max(createCalculationResponseDataAttributesOperandsItemMax).regex(createCalculationResponseDataAttributesOperandsItemRegExp).describe('A decimal number in plain notation, at most 25 integer and 25 fractional\ndigits. Scientific notation is not accepted. Rationale in ADR-0004.\n')).min(1).max(createCalculationResponseDataAttributesOperandsMax),
-  "result": zod.string().regex(createCalculationResponseDataAttributesResultRegExp).describe('The exact result, at the full precision of the server\'s decimal\ncontext (28 significant digits), in its canonical form: trailing\nzeros left by the arithmetic are stripped, which changes the\nrepresentation and not the value. A result too large to write\nplainly keeps an exponent.\n\nClients round for display only and must chain subsequent operations\non this value, never on what the screen shows. See ADR-0004.\n')
+  "operands": zod.array(zod.string().max(createCalculationResponseDataAttributesOperandsItemMax).regex(createCalculationResponseDataAttributesOperandsItemRegExp).describe('A decimal number: up to 25 integer digits, 30 fractional digits and an\noptional exponent.\n\n\*\*Operands and results share this one grammar, deliberately.\*\* A\ncalculator chains, so every result must be submittable as the next\noperand. An operand type narrower than the result type would make a\nservice that cannot accept its own output: dividing one by three returns\n28 significant digits, and multiplying that by three would be rejected.\n\nThe bounds are stated once here and enforced by both generated layers.\nRationale in ADR-0004.\n')).min(1).max(createCalculationResponseDataAttributesOperandsMax),
+  "result": zod.string().max(createCalculationResponseDataAttributesResultOneMax).regex(createCalculationResponseDataAttributesResultOneRegExp).describe('A decimal number: up to 25 integer digits, 30 fractional digits and an\noptional exponent.\n\n\*\*Operands and results share this one grammar, deliberately.\*\* A\ncalculator chains, so every result must be submittable as the next\noperand. An operand type narrower than the result type would make a\nservice that cannot accept its own output: dividing one by three returns\n28 significant digits, and multiplying that by three would be rejected.\n\nThe bounds are stated once here and enforced by both generated layers.\nRationale in ADR-0004.\n').describe('The exact result, at the full precision of the server\'s decimal\ncontext (28 significant digits), in its canonical form: trailing\nzeros left by the arithmetic are stripped, which changes the\nrepresentation and not the value. A result too large to write\nplainly keeps an exponent.\n\nClients round for display only and must chain subsequent operations\non this value, never on what the screen shows. See ADR-0004.\n')
 }).describe('The request\'s own attributes, echoed back, plus the result. Echoing them\nkeeps the response self-describing, which matters because nothing is\nstored and the client cannot fetch the calculation again to see what was\nasked.\n')
 }).describe('A calculation as the server returns it, with its result.')
 }).describe('A JSON:API document whose primary data is the evaluated calculation.')

@@ -14,7 +14,7 @@
  *
  * OpenAPI spec version: 1.0.0
  */
-import type { Operand } from './operand';
+import type { Decimal } from './decimal';
 import type { UnaryAttributesOperation } from './unaryAttributesOperation';
 
 /**
@@ -26,5 +26,5 @@ export interface UnaryAttributes {
      * @minItems 1
      * @maxItems 1
      */
-  operands: Operand[];
+  operands: Decimal[];
 }

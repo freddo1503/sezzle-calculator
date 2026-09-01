@@ -1,1 +1,64 @@
 @import "tailwindcss";
+
+/* Design tokens the generated components reference. A slate base, light and
+   dark, kept to what this interface actually uses. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.21 0.03 264);
+  --primary: oklch(0.21 0.03 264);
+  --primary-foreground: oklch(0.98 0.002 248);
+  --secondary: oklch(0.97 0.003 265);
+  --secondary-foreground: oklch(0.21 0.03 264);
+  --muted: oklch(0.97 0.003 265);
+  --muted-foreground: oklch(0.55 0.02 264);
+  --accent: oklch(0.97 0.003 265);
+  --accent-foreground: oklch(0.21 0.03 264);
+  --destructive: oklch(0.58 0.22 27);
+  --border: oklch(0.93 0.006 265);
+  --input: oklch(0.93 0.006 265);
+  --ring: oklch(0.71 0.02 261);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: oklch(0.21 0.03 264);
+    --foreground: oklch(0.98 0.002 248);
+    --primary: oklch(0.93 0.006 265);
+    --primary-foreground: oklch(0.21 0.03 264);
+    --secondary: oklch(0.28 0.03 260);
+    --secondary-foreground: oklch(0.98 0.002 248);
+    --muted: oklch(0.28 0.03 260);
+    --muted-foreground: oklch(0.71 0.02 261);
+    --accent: oklch(0.28 0.03 260);
+    --accent-foreground: oklch(0.98 0.002 248);
+    --destructive: oklch(0.7 0.19 22);
+    --border: oklch(1 0 0 / 12%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.55 0.02 264);
+  }
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+}

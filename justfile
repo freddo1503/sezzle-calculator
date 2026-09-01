@@ -102,10 +102,10 @@ coverage:
     cd {{backend}} && uv run pytest --cov --cov-report=term-missing --cov-report=xml
     cd {{frontend}} && pnpm exec vitest run --coverage
 
-# The one end-to-end test, against the assembled stack.
-e2e: up
+# The end-to-end tests. Playwright starts both layers itself, so nothing needs
+# to be running first.
+e2e:
     cd {{frontend}} && pnpm exec playwright test
-    just down
 
 # ------------------------------------------------------------------- assembled
 

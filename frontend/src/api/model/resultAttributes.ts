@@ -14,7 +14,7 @@
  *
  * OpenAPI spec version: 1.0.0
  */
-import type { Operand } from './operand';
+import type { Decimal } from './decimal';
 import type { ResultAttributesOperation } from './resultAttributesOperation';
 
 /**
@@ -29,7 +29,7 @@ export interface ResultAttributes {
      * @minItems 1
      * @maxItems 2
      */
-  operands: Operand[];
+  operands: Decimal[];
   /**
      * The exact result, at the full precision of the server's decimal
      * context (28 significant digits), in its canonical form: trailing
@@ -39,7 +39,6 @@ export interface ResultAttributes {
      *
      * Clients round for display only and must chain subsequent operations
      * on this value, never on what the screen shows. See ADR-0004.
-     * @pattern ^-?[0-9]+(\.[0-9]+)?([eE][-+]?[0-9]+)?$
      */
-  result: string;
+  result: Decimal;
 }
