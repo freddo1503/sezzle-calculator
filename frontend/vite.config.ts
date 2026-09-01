@@ -15,8 +15,15 @@ export default defineConfig({
     // backend address is ever compiled into the bundle and the backend needs no
     // cross-origin configuration. The static file server in the assembled stack
     // proxies the same prefix. See docs/architecture.md section 8.5.
+    // The prefix is stripped, because the backend declares root_path="/api" and
+    // therefore expects whatever sits in front of it to have removed it. The
+    // static file server in the assembled stack strips it the same way.
     proxy: {
-      "/api": { target: "http://localhost:8000", changeOrigin: true },
+      "/api": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ""),
+      },
     },
   },
 

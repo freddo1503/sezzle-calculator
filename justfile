@@ -50,6 +50,8 @@ generate-backend:
         --input ../{{contract}} \
         --input-file-type openapi \
         --output-model-type pydantic_v2.BaseModel \
+        --use-annotated \
+        --field-constraints \
         --formatters ruff-format \
         --output app/contract.py
 
