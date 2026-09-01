@@ -5,7 +5,8 @@ status: Accepted
 date: 2026-09-01
 supersedes: []
 superseded_by: null
-summary: Every failure returns a single JSON error envelope carrying a stable machine-readable code, with 400 for unparseable requests, 422 for anything well-formed that cannot be computed, and 500 reserved strictly for genuine bugs.
+superseded_in_part_by: 10
+summary: Every failure returns one error document carrying a stable machine-readable code, with 400 for unparseable requests, 422 for anything well-formed that cannot be computed, and 500 reserved strictly for genuine bugs. The envelope's shape was later replaced by JSON:API in ADR-0010; the status-code reasoning stands.
 tags: [api, errors, http, validation]
 updated: 2026-09-01
 ---
@@ -49,34 +50,49 @@ Decision criteria:
 
 ### One envelope
 
-Every non-2xx response, without exception, has this body:
+> **Superseded in shape by [ADR-0010](0010-jsonapi-document-format.md), not in reasoning.**
+> This record originally specified a house envelope,
+> `{"error": {"code", "message", "details"}}`, with an invented `operand_index` convention for
+> naming the offending operand. JSON:API replaced that shape. Everything else in this record
+> stands: the status-code argument below is untouched, and so is the rule that clients branch on
+> `code` and never on human-readable text. The superseded shape is described here rather than
+> deleted, because the reasoning that produced it is what JSON:API then satisfied better.
+
+Every non-2xx response, without exception, is a JSON:API error document:
 
 ```json
 {
-  "error": {
-    "code": "DIVISION_BY_ZERO",
-    "message": "Division by zero is undefined.",
-    "details": { "operation": "divide", "operand_index": 1 }
-  }
+  "errors": [
+    {
+      "status": "422",
+      "code": "DIVISION_BY_ZERO",
+      "title": "Division by zero",
+      "detail": "Division by zero is undefined.",
+      "source": { "pointer": "/data/attributes/operands/1" }
+    }
+  ]
 }
 ```
 
-`code` is a stable enumeration for programmatic branching. `message` is human-readable and
-may be reworded freely, because nothing depends on it. `details` is optional and carries
-structured context (which field, which operand) for the frontend to highlight the offending
-input.
+`code` is a stable enumeration for programmatic branching, and it is now a member the
+specification defines rather than one we invented. `title` and `detail` are human-readable and
+owned by the server, so the client renders them as they arrive and holds no string table of its
+own. `source.pointer` is an RFC 6901 JSON Pointer naming the offending value exactly, which
+replaces the `operand_index` convention this record used to define.
 
 Uniformity is achieved by installing an exception handler for FastAPI's
-`RequestValidationError` that translates Pydantic's native `detail` array into this
-envelope. Without that handler the API would emit two shapes; with it, the single entry
-point of [ADR-0003](0003-single-calculate-endpoint.md) means every failure passes through
-one funnel.
+`RequestValidationError` that translates Pydantic's native `detail` array into this shape.
+Without that handler the API would emit two shapes; with it, the single entry point of
+[ADR-0003](0003-single-calculate-endpoint.md) means every failure passes through one funnel.
+JSON:API additionally forbids `data` and `errors` from coexisting, so the mutual exclusion this
+record wanted is now guaranteed by the format rather than by our own discipline.
 
 ### Status codes
 
 | Status | When | Example codes |
 |---|---|---|
-| `400 Bad Request` | The request could not be parsed at all: malformed JSON, wrong content type | `MALFORMED_REQUEST` |
+| `400 Bad Request` | The request body could not be parsed at all | `MALFORMED_REQUEST` |
+| `415 Unsupported Media Type` | The request did not use `application/vnd.api+json`. Required by JSON:API | `UNSUPPORTED_MEDIA_TYPE` |
 | `422 Unprocessable Content` | The request parsed, but cannot be processed: schema violations **and** domain failures | `VALIDATION_ERROR`, `UNKNOWN_OPERATION`, `INVALID_OPERAND`, `WRONG_OPERAND_COUNT`, `DIVISION_BY_ZERO`, `NEGATIVE_SQRT`, `UNDEFINED_RESULT`, `OPERAND_OUT_OF_RANGE`, `RESULT_OVERFLOW` |
 | `500 Internal Server Error` | Never deliberately. An unhandled exception means a bug | `INTERNAL_ERROR` |
 
@@ -103,7 +119,7 @@ calculation is undefined.
 
 ### Frontend behaviour
 
-The frontend renders the response's `message` for the user and branches on `code` only for
+The frontend renders the response's `title` and `detail` for the user and branches on `code` only for
 behaviour, such as which input to highlight when `details` names a field. It holds no map from
 code to text: the backend owns the wording, because a string table in the frontend would be a
 rule living in the wrong layer. A new backend code therefore displays correctly without any
@@ -118,6 +134,10 @@ frontend change.
 - **200 OK with an error field in the body.** Rejected. It defeats HTTP status semantics,
   breaks every generic client, monitor, and proxy, and forces every consumer to inspect the
   body to know whether the call worked.
+- **JSON:API error objects.** Not considered at the time and adopted later in
+  [ADR-0010](0010-jsonapi-document-format.md), which is the outcome this record's reasoning was
+  reaching for: one shape, a machine-readable code, and a standard way to point at the offending
+  field.
 - **RFC 9457 Problem Details for HTTP APIs** (`application/problem+json`, with `type`,
   `title`, `status`, `detail`, `instance`). Genuinely tempting: it is the standardised
   answer to this exact problem, and would be the right call on a production service with

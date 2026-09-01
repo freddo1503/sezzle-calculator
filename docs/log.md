@@ -185,3 +185,32 @@ the system, and being wrong about it would change nothing that was built.
 
 The word ceiling on `architecture.md` was retired in favour of a rule: every paragraph earns its
 place, duplication is the only automatic cut, and the count is reported for information.
+
+## [2026-09-01] ingest | Decisions O and P, JSON:API and a slimmed README
+
+The contract was rewritten to JSON:API v1.1 and committed, so the documentation was reconciled
+against `openapi.yaml` as ground truth rather than the other way round.
+
+New record [ADR-0010](decisions/0010-jsonapi-document-format.md). It is not an adoption note: the
+substance is the strain. JSON:API is resource-oriented and defines no mechanism for
+remote-procedure-style operations, which a calculation is, so the record names where the
+accommodation shows (200 rather than 201, since nothing is stored and no `self` link would
+resolve, and the `data`/`type`/`attributes` ceremony on a brief that asks for restraint) and what
+it genuinely buys (`source.pointer` as an RFC 6901 JSON Pointer instead of an invented
+`operand_index`, a recognisable error shape, and `data` and `errors` being structurally forbidden
+from coexisting). Both claims were verified against the specification and its frequently-asked
+questions before being written.
+
+Two existing records changed without being rewritten. ADR-0003 keeps its argument intact: still
+one endpoint, still one discriminated union, now at `data.attributes.operation` with the path
+`POST /api/calculations`. ADR-0005 keeps its reasoning and loses its shape: the house envelope is
+superseded by JSON:API's errors array, and the supersession is recorded in place with the old
+shape described rather than deleted, because the reasoning that produced it is what JSON:API then
+satisfied better. Its status-code argument is untouched, and a 415 row was added.
+
+The README was cut from 2,674 words to 898. Nothing required by the assignment left it: setup,
+running, API examples, design decisions and assumptions, and tests and coverage all remain. What
+went was duplication, the multi-paragraph arguments that each linked ADR already makes better and
+the full error-code enumeration that `openapi.yaml` owns. Decisions are now one-line rows linking
+to their records. The backend-language note stays near the top and the prompt record stays
+labelled as a deliverable.

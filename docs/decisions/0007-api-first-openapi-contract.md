@@ -47,7 +47,7 @@ Decision criteria:
 Adopt an API-first workflow with four moving parts.
 
 **1. `openapi.yaml` is committed at the repository root and authored first**, before either
-layer exists. It defines `POST /api/calculate`, the operation enumeration, the operand and
+layer exists. It defines `POST /api/calculations`, the operation enumeration, the operand and
 result string types, the success response, and the error envelope with its code
 enumeration. It is a source file, edited deliberately, not a build output.
 

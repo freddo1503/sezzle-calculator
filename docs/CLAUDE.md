@@ -184,8 +184,11 @@ file would then always match itself and the check would be permanently red.
   describing CORS headers on the backend is stale and wrong.
 - All three "optional" operations are implemented. Continuous integration gates are listed once
   in `architecture.md` § 7.1; link there rather than restating them.
-- The API path is `POST /api/calculate`. The `/api` prefix is what the proxies route on; never
-  document a bare `/calculate`.
+- The API path is `POST /api/calculations` and the media type is `application/vnd.api+json`.
+  Documents follow JSON:API ([ADR-0010](decisions/0010-jsonapi-document-format.md)): requests and
+  responses wrap the resource in `data`, errors are an `errors` array, and clients branch on
+  `code` while rendering the server's `title` and `detail`. Never document the retired house
+  envelope or a bare `/calculate`.
 - Mantine was the component library and was replaced by shadcn/ui. Current-state documents say
   shadcn/ui; `log.md` and `13-prompt-record.md` are chronological records and keep the historical
   mention, since rewriting them would misrepresent what happened.

@@ -1,16 +1,16 @@
 ---
 number: 3
-title: A single generic POST /api/calculate endpoint rather than one endpoint per operation
+title: A single generic POST /api/calculations endpoint rather than one endpoint per operation
 status: Accepted
 date: 2026-09-01
 supersedes: []
 superseded_by: null
-summary: The API exposes one POST /api/calculate endpoint taking the operation as a discriminated field, giving a uniform error model and a single validation surface, at the cost of less self-describing URLs.
+summary: The API exposes one POST /api/calculations endpoint taking the operation as a discriminated field, giving a uniform error model and a single validation surface, at the cost of less self-describing URLs.
 tags: [api, rest, design]
 updated: 2026-09-01
 ---
 
-# ADR-0003: A single generic `POST /api/calculate` endpoint rather than one endpoint per operation
+# ADR-0003: A single generic `POST /api/calculations` endpoint rather than one endpoint per operation
 
 ## Context
 
@@ -43,10 +43,11 @@ Decision criteria:
 Expose a single endpoint:
 
 ```
-POST /api/calculate
-Content-Type: application/json
+POST /api/calculations
+Content-Type: application/vnd.api+json
 
-{ "operation": "divide", "operands": ["1", "3"] }
+{ "data": { "type": "calculations",
+            "attributes": { "operation": "divide", "operands": ["1", "3"] } } }
 ```
 
 The `operation` field is a closed enumeration. The request body is modelled as a
@@ -85,7 +86,7 @@ against one response type.
   error contract to keep consistent, validation logic duplicated or indirected, and a new
   route plus handler plus tests for every new operation. For an operation set this
   homogeneous, the repetition buys presentation rather than capability.
-- **`GET /api/calculate?operation=add&a=1&b=2`.** Rejected. Calculations are safe and
+- **`GET /api/calculations?operation=add&a=1&b=2`.** Rejected. Calculations are safe and
   idempotent, so GET is semantically defensible and would even be cacheable. But operands
   in a query string invite type coercion at every hop (proxies, logs, browser history), the
   URL-encoding of decimal strings and signs is fiddly, and exact-decimal transport
@@ -107,7 +108,7 @@ against one response type.
 
 ### Negative
 
-- **URLs are less self-describing.** `POST /api/calculate` conveys nothing about what is being
+- **URLs are less self-describing.** `POST /api/calculations` conveys nothing about what is being
   computed; the intent is in the body. A reader of an access log sees only that a
   calculation happened.
 - **The generated OpenAPI document shows one operation, not seven.** The discriminated
@@ -119,6 +120,10 @@ against one response type.
 
 ### Neutral
 
+- **The document format is JSON:API** ([ADR-0010](0010-jsonapi-document-format.md)), so the
+  discriminated union now lives at `data.attributes.operation` and the path is the plural
+  `calculations`. The argument below is unaffected: still one endpoint, still one union, still
+  one validation surface.
 - **Reinforced by [ADR-0007](0007-api-first-openapi-contract.md)**: a single endpoint with a
   discriminated union is markedly cheaper to hand-author and keep current as an OpenAPI
   contract than seven endpoints would be.

@@ -34,7 +34,7 @@ alternatives.
 |---|---|---|
 | [0001](decisions/0001-record-architecture-decisions.md) | Decisions carrying risk get a numbered record; routine choices do not | Accepted |
 | [0002](decisions/0002-python-fastapi-instead-of-go.md) | Python and FastAPI instead of the brief's preferred Go, with the cost stated plainly | Accepted |
-| [0003](decisions/0003-single-calculate-endpoint.md) | One generic `POST /api/calculate` rather than an endpoint per operation | Accepted |
+| [0003](decisions/0003-single-calculate-endpoint.md) | One generic `POST /api/calculations` rather than an endpoint per operation | Accepted |
 | [0004](decisions/0004-exact-decimal-arithmetic.md) | Exact decimal arithmetic, and JSON string transport so the client cannot undo it | Accepted |
 | [0005](decisions/0005-error-model-and-status-codes.md) | One error envelope, stable codes, 422 for anything well-formed but not computable | Accepted |
 | [0006](decisions/0006-shadcn-ui-component-library.md) | shadcn/ui on Radix, generated into the repository rather than imported, so the component code is ours | Accepted |

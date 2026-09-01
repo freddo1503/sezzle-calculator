@@ -95,7 +95,8 @@ C4Container
 ### 3.3 External interfaces
 
 The user reaches the single-page application (SPA) over Hypertext Transfer Protocol Secure
-(HTTPS); the SPA calls the API over HTTP with JSON at `POST /api/calculate`.
+(HTTPS); the SPA calls the API over HTTP at `POST /api/calculations`, in JSON:API documents
+with the media type `application/vnd.api+json` ([ADR-0010](decisions/0010-jsonapi-document-format.md)).
 
 Two semantics the contract fixes. **Percentage** is `percent(a, b) = a / 100 * b`, so
 `percent(20, 50)` is `10`, sitting on the keypad as a binary operator like division rather than
@@ -163,7 +164,7 @@ C4Component
     title Component view: Calculator API
 
     Container_Boundary(api, "Calculator API") {
-        Component(router, "HTTP router", "FastAPI", "Exposes POST /api/calculate, owns no logic")
+        Component(router, "HTTP router", "FastAPI", "Exposes POST /api/calculations, owns no logic")
         Component(schema, "Request and response schemas", "Pydantic", "Implements the committed contract. Enforces arity, parses operands, bounds magnitude")
         Component(engine, "Arithmetic engine", "Python decimal", "One pure function per operation. No HTTP knowledge")
         Component(errors, "Error translation", "FastAPI exception handlers", "Maps every failure into the single error envelope")
@@ -249,7 +250,7 @@ sequenceDiagram
     U->>S: Taps or types operands and an operator
     activate S
     Note over S: Input state machine only.<br/>No arithmetic on the client.
-    S->>A: POST /api/calculate with operation and operand strings
+    S->>A: POST /api/calculations, JSON:API document with operand strings
     activate A
     A->>A: Validate against the discriminated union
 
@@ -266,7 +267,7 @@ sequenceDiagram
         E-->>A: Raises a domain error
         deactivate E
         A-->>S: 422 with code DIVISION_BY_ZERO
-        S-->>U: Shows the message mapped from the code
+        S-->>U: Shows the title and detail the backend returned
     else Fails schema validation
         A-->>S: 422 with code VALIDATION_ERROR and offending field in details
         S-->>U: Highlights the offending input
@@ -302,7 +303,7 @@ C4Deployment
                 Container(spa, "Calculator SPA", "Static build output", "Hypertext Markup Language, Cascading Style Sheets, JavaScript")
             }
             Deployment_Node(apiNode, "api container", "Python image running an Asynchronous Server Gateway Interface server") {
-                Container(api, "Calculator API", "FastAPI", "Serves POST /api/calculate")
+                Container(api, "Calculator API", "FastAPI", "Serves POST /api/calculations")
             }
         }
     }
@@ -360,23 +361,26 @@ what the answer is; a formatting choice changes only how it is shown.
 ### 8.3 Validation and error handling
 
 The backend is the only authority: schema validation, then domain validation in the engine.
-Every failure leaves through one envelope with a stable `code`
-([ADR-0005](decisions/0005-error-model-and-status-codes.md)).
+Every failure leaves through one JSON:API error document with a
+stable `code`, and `source.pointer` names the offending value as an RFC 6901 JSON Pointer
+([ADR-0005](decisions/0005-error-model-and-status-codes.md),
+[ADR-0010](decisions/0010-jsonapi-document-format.md)).
 
 Because the frontend holds no rules of its own (§ 2), it validates with the Zod schemas Orval
 generates from the contract ([ADR-0008](decisions/0008-generate-all-wire-types.md)), never
 hand-written checks, duplicated bounds, or a local list of operations. That satisfies the brief's
 frontend-validation requirement while keeping the constraint intact: the frontend enforces the
 contract's rules, it does not own them. For the same reason the **backend owns the error
-wording**; the frontend branches on `code` for behaviour and renders `message` for the user.
+wording**; the frontend branches on `code` for behaviour and renders the `title` and `detail`
+the server returned.
 
 ### 8.4 Testing
 
 Engine tests carry the most value per minute, being pure functions with no input or output:
 each operation, exactness (`0.1 + 0.2` is exactly `0.3`), and each domain error, written
 test-first. API tests derive from the contract. Frontend tests cover the input state machine (a second equals does nothing,
-operator-after-operator replaces the pending operator), rendering, and that the error `message`
-from the response is what reaches the user.
+operator-after-operator replaces the pending operator), rendering, and that the error text from
+the response is what reaches the user.
 Coverage is reported for both layers and **no threshold blocks anywhere**: the brief asks for
 a coverage report, not a target, and a number reported without one having been aimed at is
 worth more than a number a gate forced upward.
