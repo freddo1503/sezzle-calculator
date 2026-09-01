@@ -214,3 +214,34 @@ went was duplication, the multi-paragraph arguments that each linked ADR already
 the full error-code enumeration that `openapi.yaml` owns. Decisions are now one-line rows linking
 to their records. The backend-language note stays near the top and the prompt record stays
 labelled as a deliverable.
+
+## [2026-09-01] lint | Documentation reconciled with the built system
+
+The system is built and green, so the code, the contract, the justfile and the workflow are now
+ground truth and the documents were corrected against them rather than the reverse.
+
+Two findings are the substance. **The contract could not accept its own output**: operands allowed
+25 fractional digits and no exponent while results carry 28 significant digits and may carry one,
+so dividing one by three and multiplying the answer by three was rejected by our own generated
+validation. The earlier argument that excluding scientific notation kept "one parsing rule instead
+of two" was wrong in its own terms, since it created two. Operands and results now share one
+`Decimal` grammar. Only an end-to-end chain could find it, because only a chain feeds output back
+in as input, which is recorded as the cause rather than the fix being made silently.
+
+**The drift check became tests, and its limit was measured.** The promised `check_drift` module
+and recipe were removed rather than written: `check-generated` covers derived artefacts by
+regenerating and diffing, and the served-document comparison lives in `test_contract.py`. Four
+injected drifts showed the split: a renamed path, a changed media type and an omitted title are
+caught by the comparison, but a changed status is not, because statuses are declared in the route
+decorator; the behavioural scenarios catch that one.
+
+Also reconciled: behaviour is now 43 Gherkin scenarios under pytest-bdd with the old behavioural
+file deleted; results are returned in canonical form by `to_wire`; the frontend's three named
+parts are described as built; the end-to-end tests are three scenarios against the development
+server that Playwright starts itself, not one smoke test against Compose; the gate list matches
+the workflow exactly at five blocking plus one `continue-on-error`; and the container facts that
+cost time (`0.0.0.0` binding, Node images without corepack, IPv6 localhost against an IPv4 nginx)
+are recorded where a reader meets them.
+
+Nine tier-one prompts appended, three of them questions, including the one that deleted a module
+before it was written.

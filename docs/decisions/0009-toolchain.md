@@ -42,6 +42,11 @@ surface small.
 **`pnpm`** replaces npm, with `pnpm install --frozen-lockfile` and a `pnpm-lock.yaml`
 lockfile. A routine choice, recorded here for completeness rather than argued.
 
+Tests are written in the form that suits what they describe: `pytest-bdd` runs behaviour as
+Gherkin scenarios, while the arithmetic engine and the contract comparison stay plain pytest. A
+scenario describes what the service does; an assertion on a document key describes how it happens
+to be built.
+
 Biome coexists with the Tailwind that [ADR-0006](0006-shadcn-ui-component-library.md) brings
 in. Automatic class-name sorting is deliberately not configured: it is machinery this budget
 does not justify.
@@ -60,8 +65,9 @@ on a public repository while an evaluator is looking at it. A red pipeline is a 
 signal than a slower type checker.
 
 **The mitigation, and its reason:** the `ty` step in continuous integration is
-**non-blocking**. Tests, coverage, the OpenAPI drift check, both generated-artefact freshness
-checks, and the end-to-end smoke test all remain blocking. Type errors still appear in the job
+**non-blocking**. The other five gates all remain blocking: the contract validates, generated
+artefacts are current, lint and format pass, tests pass with coverage, and the end-to-end
+scenarios pass. Type errors still appear in the job
 output and locally through `just`, where they are useful.
 
 This is not the usual practice of letting an unimportant check advise rather than gate. Type

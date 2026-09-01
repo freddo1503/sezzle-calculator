@@ -177,9 +177,29 @@ number has already been through a client-side double before it is serialised.
 - Precision and rounding are set explicitly at 28 and `ROUND_HALF_EVEN` even though these
   are the module defaults, so the values are visible in the code and in this document
   rather than inherited silently.
-- Operand magnitude is bounded on input, so that expressions like `9E+999999 ** 9E+999999`
-  fail as a validated domain error instead of consuming unbounded time and memory. The
-  resulting error maps per [ADR-0005](0005-error-model-and-status-codes.md).
+- Operand magnitude is bounded on input, so an oversized value fails validation rather than
+  consuming time and memory. The error maps per
+  [ADR-0005](0005-error-model-and-status-codes.md).
+- **Results are returned in canonical form.** Arithmetic leaves trailing zeros behind (20 percent
+  of 50 computes as `10.0`), so the HTTP layer strips them, leaving the value unchanged and
+  keeping an exponent only when a number is too large to write plainly. Representation, not
+  arithmetic, so it lives at the boundary and not in the engine.
+
+### Correction: operands and results share one grammar
+
+The first version of this contract gave operands a narrower type than results, at 25 fractional
+digits and plain notation only, arguing that a keypad cannot type scientific notation and that
+excluding it left one parsing rule instead of two.
+
+**That argument was wrong in its own terms.** Results carry 28 significant digits and may carry an
+exponent, so a narrower operand type created exactly the two rules it claimed to avoid, one for
+input and one for output. The service could not accept its own output: dividing one by three and
+multiplying the answer by three was rejected by our own generated validation.
+
+Operands and results now share the single `Decimal` schema, up to 25 integer digits, 30 fractional
+digits, and an optional exponent. Only an end-to-end chain could have found this, because only a
+chain feeds output back in as input; no unit test and no single API call reinjects a result. The
+regression guard is the scenario "A result can be fed straight back in as an operand".
 
 ## References
 

@@ -104,10 +104,23 @@ as the context-sensitive postfix percent of physical calculators, whose meaning 
 pending operator and which surprises people. **A negative base with a fractional exponent is a
 domain error**, since the real-valued result does not exist.
 
-**Operands are bounded, and the contract declares the bound**: at most 25 integer and 25
-fractional digits, in plain notation, with scientific notation excluded because a keypad cannot
-produce it and excluding it leaves one parsing rule instead of two. An oversized operand fails
-as `OPERAND_OUT_OF_RANGE` before any arithmetic runs.
+**Operands and results share one grammar**, the `Decimal` schema: up to 25 integer digits, 30
+fractional digits, and an optional exponent. An oversized value fails as
+`OPERAND_OUT_OF_RANGE` before any arithmetic runs.
+
+That they share it is a correction, and the reason is worth recording. The first contract gave
+operands a narrower type than results: 25 fractional digits, plain notation only, on the argument
+that a keypad cannot type scientific notation and that excluding it left one parsing rule instead
+of two. **That argument was wrong in its own terms.** Results carry 28 significant digits and may
+carry an exponent, so a narrower operand type created exactly the two rules it claimed to avoid,
+one for input and one for output, and produced a service that could not accept its own output:
+dividing one by three and multiplying the answer by three was rejected by our own generated
+validation.
+
+Only an end-to-end chain could find it, because only a chain feeds output back in as input. No
+unit test and no single API call reinjects a result, so nothing below that level could have seen
+it. The regression guard is the scenario "A result can be fed straight back in as an operand" in
+`evaluating_a_calculation.feature`.
 
 **No separate bound guards the exponent of `power`**, and the reason is worth recording because
 the first design had one. Exponentiation looks like the one input that could make the server work
@@ -195,6 +208,11 @@ to the contract and the backend, per the § 2 constraint. Every evaluation remai
 request for one binary operation, so the frontend performs no arithmetic and
 [ADR-0003](decisions/0003-single-calculate-endpoint.md) is untouched. A reviewer seeing a keypad
 will reasonably wonder whether the client started computing; it did not.
+
+Three named parts, all pure and unit-tested: `src/lib/keypad.ts` holds the state machine,
+`src/lib/format.ts` rounds for display by string arithmetic rather than through `Number`, which
+would reintroduce the float error and cannot hold a 25-digit integer, and
+`src/components/Calculator.tsx` renders. Zod validates the response at the boundary.
 
 Two behaviours follow, and they are where keypads usually go wrong.
 **Operator-after-operator** replaces the pending operator rather than stacking it: input state,
@@ -287,11 +305,17 @@ containerised and nothing is built, so the inner loop is as fast as the tools al
 unit tests that test-driven development runs hundreds of times are not routed through a
 container for no return.
 
-**Docker Compose runs the assembled stack** under its own recipe, with two jobs: giving an
-evaluator one command that needs no toolchain, and hosting the smoke test (§ 8.4). Nothing is
-mounted, so the images are plain build-and-run and the frontend is a production build served
-statically. One hazard belongs here because it is what makes a first run fail: a server inside
-a container must bind `0.0.0.0`, not localhost, or the published port reaches nothing.
+**Docker Compose runs the assembled stack** under `just up`, with one job: giving an evaluator
+one command that needs no toolchain. Nothing is mounted, so the images are plain build-and-run and
+the frontend is a production build served statically. The API container publishes no port: nginx
+is the only door, on 8080, and strips the `/api` prefix exactly as the Vite rewrite does in
+development, so both paths present the same origin to the frontend.
+
+Three container facts, recorded because each cost time and none is guessable: a server inside a
+container must bind `0.0.0.0` rather than localhost or the published port reaches nothing; recent
+Node images no longer ship `corepack`, so it must be installed rather than assumed; and
+`localhost` inside a container resolves to IPv6 while nginx listens on IPv4, which is why the
+healthcheck names `127.0.0.1`.
 
 ```mermaid
 C4Deployment
@@ -316,17 +340,29 @@ persistence.
 
 ### 7.1 Continuous integration gates
 
-GitHub Actions runs on every push. Five gates block, one advises. This is the single list;
-anywhere else that mentions the gates links here.
+Five gates block and one advises. This is the single list; anywhere else that mentions the
+gates links here.
 
-| Gate | Blocking | Why |
+GitHub Actions enters through `just`, like a developer and like an agent, so no command exists
+only in the workflow file.
+
+| Gate | Recipe | Blocking |
 |---|---|---|
-| Tests and coverage, both layers | Yes | Correctness, a graded deliverable |
-| End-to-end smoke test | Yes | The composition claim, § 8.4 |
-| OpenAPI drift, generated against committed | Yes | What makes the contract real |
-| Backend and frontend generated artefacts fresh | Yes | Committed generated code must not go stale |
-| Lint and format, Ruff and Biome | Yes | Cheap and deterministic |
-| Type check, `ty` | **No** | Pre-1.0 and unpinned, so a regression could redden a public repository mid-evaluation. Errors still surface in the job output, [ADR-0009](decisions/0009-toolchain.md) |
+| The contract is a valid OpenAPI document | `check-contract` | Yes |
+| Generated artefacts are current | `check-generated` | Yes |
+| Lint and format, both layers | `check-lint` | Yes |
+| Tests with coverage, both layers | `coverage` | Yes |
+| End-to-end scenarios | `e2e` | Yes |
+| Type check | `typecheck` | **No**, `continue-on-error`. `ty` is pre-1.0 and nothing is pinned, so a beta regression must not redden a public repository mid-evaluation. Findings still print in the job log ([ADR-0009](decisions/0009-toolchain.md)) |
+
+**How drift is actually caught, in two parts.** `check-generated` regenerates everything and fails
+on any `git diff`, which covers the derived artefacts without a bespoke comparison step. The
+served document is compared against the committed contract by ordinary tests in
+`test_contract.py`. Injecting four deliberate drifts measured the split: a renamed path, a changed
+media type and an omitted title are all caught by the document comparison, but **changing a status
+the code returns is not**, because statuses are declared in the route decorator, so the served
+document does not move. The behavioural scenarios catch that one. Document comparison catches
+shape drift; behaviour catches behavioural drift, and neither substitutes for the other.
 
 ## 8. Crosscutting concepts
 
@@ -358,6 +394,13 @@ feeds back (see [`.claude/rules/principles.md`](../.claude/rules/principles.md))
 That is not a breach of the § 2 constraint, though it can look like one. A business rule changes
 what the answer is; a formatting choice changes only how it is shown.
 
+**Results are returned in canonical form.** Arithmetic leaves trailing zeros behind, so 20 percent
+of 50 computes as `10.0`, and a square root once produced
+`3.000000000000000000000000000`. `to_wire` in the HTTP layer strips them, leaving the value
+unchanged and keeping an exponent only for a number too large to write plainly. It is
+representation rather than arithmetic, which is why it lives at the boundary and not in the
+engine.
+
 ### 8.3 Validation and error handling
 
 The backend is the only authority: schema validation, then domain validation in the engine.
@@ -376,21 +419,35 @@ the server returned.
 
 ### 8.4 Testing
 
-Engine tests carry the most value per minute, being pure functions with no input or output:
-each operation, exactness (`0.1 + 0.2` is exactly `0.3`), and each domain error, written
-test-first. API tests derive from the contract. Frontend tests cover the input state machine (a second equals does nothing,
-operator-after-operator replaces the pending operator), rendering, and that the error text from
-the response is what reaches the user.
-Coverage is reported for both layers and **no threshold blocks anywhere**: the brief asks for
-a coverage report, not a target, and a number reported without one having been aimed at is
-worth more than a number a gate forced upward.
+127 tests: 93 backend, 31 frontend units, 3 end to end. Each layer is tested in the form that
+suits what it is.
 
-**Exactly one end-to-end test**, in Playwright against the Compose stack: type `0.1`, `+`,
-`0.2`, `=`, and assert the display reads exactly `0.3`. It is the only artefact proving that
-[ADR-0004](decisions/0004-exact-decimal-arithmetic.md)'s exactness survives every hop: engine,
-error envelope, contract, generated client, runtime validation, rendering. Unit tests prove
-each hop in isolation; this proves the composition. A larger suite is deliberately rejected,
-since the brief asks for unit tests and prioritises correctness over extra features.
+**The arithmetic engine is parametrised pytest units** (38), pure functions with no input or
+output: each operation, exactness (`0.1 + 0.2` is exactly `0.3`), and each domain error, written
+test-first.
+
+**Behaviour is Gherkin** (43 scenarios in two feature files, run by pytest-bdd), because a
+scenario that reads "when I divide one by zero, then the response says the division is undefined"
+describes what the service does, where an assertion on a JSON key describes how it happens to be
+built. The step definitions speak about calculations rather than about document keys. The earlier
+hand-written behavioural test file was deleted rather than kept alongside, since two descriptions
+of the same behaviour is the duplication the DRY rule forbids.
+
+**The contract comparison is plain pytest** (12), because it is structural rather than
+behavioural: it compares the document the application serves against the committed contract.
+
+**Frontend units** (31) cover the input state machine and the display formatter, both pure.
+
+**Three end-to-end scenarios**, in Playwright against the development server, which Playwright
+starts itself through its `webServer` option, so `just e2e` needs nothing running first. They
+began as one and grew two companions because each proves something the others cannot: exactness
+end to end (`0.1 + 0.2` displays `0.3`), chaining on the exact value (the display reads `0.33`
+and then `1.00`, which is quality scenario Q6 verified for real rather than asserted), and a
+server-authored error reaching the screen. Unit tests prove each hop in isolation; these prove
+the composition.
+
+Coverage is reported and **no threshold blocks anywhere**: the brief asks for a report, not a
+target. Backend 97 percent of lines, frontend 94 percent of statements.
 
 The frontend's runtime Zod validation is **not** a test. It is a production guard on every
 response, and the two should not be confused.
@@ -398,7 +455,8 @@ response, and the two should not be confused.
 ### 8.5 Same-origin by construction
 
 **The frontend always calls a same-origin relative path**, proxied to the backend by the Vite
-development server in development and by the static file server in the Compose stack. The
+development server in development and by nginx in the assembled stack, which strips the `/api`
+prefix exactly as the Vite rewrite does. The
 backend therefore needs no Cross-Origin Resource Sharing configuration at all, and the frontend
 never holds an absolute backend address.
 
@@ -406,6 +464,10 @@ This removes the problem rather than configuring around it (see
 [`.claude/rules/principles.md`](../.claude/rules/principles.md)): nothing cross-origin to get
 wrong, no environment-specific address in the bundle, one code path instead of two. It costs a
 proxy rule in two configuration files.
+
+One detail for anyone running `curl` against the backend directly: Starlette strips `root_path`
+from incoming paths, so the service answers on both `/calculations` and `/api/calculations`. The
+interactive documentation is at `localhost:8000/docs`.
 
 ## 9. Architecture decisions
 
@@ -422,8 +484,8 @@ second index of it would be the duplication
 | Q2 | G1 | Divide by zero | 422, code `DIVISION_BY_ZERO`. No stack trace, no 500 |
 | Q3 | G3, G4 | Add a binary operation | Contract entry, one enum member, one pure function, plus tests. No new route |
 | Q4 | G5 | Keypad at phone width | Usable without horizontal scrolling; every key reachable from the keyboard |
-| Q5 | G1 | Backend drifts from the contract | Continuous integration fails before merge |
-| Q6 | G1 | Compute one divided by three, then times three | Display reads `1.00`, not `0.99`. The only scenario that catches the display rounding of § 8.2 leaking back into computation |
+| Q5 | G1 | Backend drifts from the contract | Continuous integration fails before merge. Shape drift is caught by the document comparison, behavioural drift by the scenarios; § 7.1 records which catches what |
+| Q6 | G1 | Compute one divided by three, then times three | Display reads `0.33`, then `1.00`, not `0.99`. The only scenario that catches the display rounding of § 8.2 leaking back into computation, and the one that found the contract defect in § 3.3. Verified end to end, not merely asserted |
 | Q7 | G4 | Add an operation to `openapi.yaml` and regenerate | It reaches the frontend with no hand-written frontend change. Asserts the property the § 2 constraint buys |
 
 ## 11. Risks, technical debt, and assumptions
@@ -449,8 +511,8 @@ Accepted knowingly on budget grounds. None was requested by the brief.
 - No operator precedence: the keypad evaluates one binary operation per press, so `2 + 3 * 4`
   follows keypad order, not mathematical precedence.
 - No rate limiting, authentication, or observability.
-- End-to-end coverage is one smoke test (§ 8.4). Error paths, keyboard input and responsive
-  behaviour are covered by unit tests instead.
+- End-to-end coverage is three scenarios (§ 8.4). Keyboard input and responsive behaviour are
+  covered by unit tests instead.
 - No development container: one author on Linux, with `uv` and `pnpm` already providing
   isolation, so it would add a layer for a benefit that needs a team to be worth anything.
 - Error messages are English only. The backend owns the wording (§ 8.3), so translating means

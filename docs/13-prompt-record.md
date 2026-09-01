@@ -747,3 +747,262 @@ in the same commit rather than being split into separate commits by file type.
 
 It changed how the contract was committed. `openapi.yaml` went in together with the architecture
 section it settles, rather than as a separate documentation commit afterwards.
+
+## 020. JSON:API as the document format
+
+| | |
+|---|---|
+| **Date** | 2026-09-01 |
+| **Phase** | Architecture |
+| **Author** | Frédéric |
+| **Fidelity** | Verbatim |
+
+**Prompt**
+
+> use https://jsonapi.org/ to build our api specs
+
+**What it produced**
+
+[ADR-0010](decisions/0010-jsonapi-document-format.md) and a rewritten contract: the path became
+`POST /api/calculations`, the media type `application/vnd.api+json`, and errors a JSON:API
+`errors` array with `source.pointer` naming the offending operand as an RFC 6901 JSON Pointer.
+
+The record is written as a tension rather than an adoption note, because JSON:API is
+resource-oriented and defines no mechanism for the remote-procedure-style operation a calculation
+actually is. It names where the accommodation shows, `200` rather than `201` since nothing is
+stored, and the wrapper ceremony on a brief that asks for restraint.
+
+**Changes made to the output**
+
+Two existing records had to change without being rewritten. ADR-0003 kept its argument and
+changed only its path and body shape. ADR-0005 kept its status-code reasoning and lost its
+envelope, with the supersession recorded in place and the old house shape described rather than
+deleted, since the reasoning that produced it is what JSON:API then satisfied better.
+
+## 021. The README is too long
+
+| | |
+|---|---|
+| **Date** | 2026-09-01 |
+| **Phase** | Documentation |
+| **Author** | Frédéric |
+| **Fidelity** | Verbatim |
+
+**Prompt**
+
+> readme is too big, keep concise, the rest goes to @docs
+
+**What it produced**
+
+The README cut from 2,674 words to 898, while keeping every section the assignment requires:
+setup, running, API examples, design decisions and assumptions, and tests and coverage.
+
+What left was duplication rather than content. Eleven multi-paragraph decision summaries became a
+nine-row table of one-line entries linking to the records that argue them properly, and the full
+error-code enumeration went back to `openapi.yaml`, which owns it. The note about the backend
+language stayed near the top, and the prompt record stayed labelled as a deliverable.
+
+**Changes made to the output**
+
+No changes. The output was accepted as produced.
+
+## 022. What is meant by the HTTP layer?
+
+| | |
+|---|---|
+| **Date** | 2026-09-01 |
+| **Phase** | Backend |
+| **Author** | Frédéric |
+| **Fidelity** | Verbatim, French |
+
+**Prompt**
+
+> what do you mean by couche http ?
+
+"Couche HTTP" is French for "the HTTP layer". A question, not an instruction.
+
+**What it produced**
+
+An explanation of the boundary the documentation had been asserting without ever spelling out:
+the layer that turns a JSON:API document into `Decimal` values, calls the engine, and turns the
+answer back into a document. It computes nothing, and the engine knows nothing about it, which is
+what makes the arithmetic testable without a server.
+
+**Changes made to the output**
+
+No changes to the documents. The question established that a boundary named in
+[`architecture.md`](architecture.md) § 5.2 was not self-explanatory to a reader who had not
+written it.
+
+## 023. FastAPI
+
+| | |
+|---|---|
+| **Date** | 2026-09-01 |
+| **Phase** | Backend |
+| **Author** | Frédéric |
+| **Fidelity** | Verbatim |
+
+**Prompt**
+
+> Use fastapi
+
+**What it produced**
+
+Confirmation of the framework already recorded in
+[ADR-0002](decisions/0002-python-fastapi-instead-of-go.md), settled before the HTTP layer was
+written rather than assumed from the documentation.
+
+**Changes made to the output**
+
+No changes. The output was accepted as produced.
+
+## 024. What is check_drift?
+
+| | |
+|---|---|
+| **Date** | 2026-09-01 |
+| **Phase** | Continuous integration |
+| **Author** | Frédéric |
+| **Fidelity** | Verbatim |
+
+**Prompt**
+
+> what is the check_drift ?
+
+A question about a recipe the `justfile` promised and no code yet implemented.
+
+**What it produced**
+
+An explanation of what the step was for: comparing the document the application serves against
+the committed contract, so that a hand-written route cannot quietly diverge from the contract it
+is supposed to implement.
+
+**Changes made to the output**
+
+None yet. The next prompt dismantled the answer.
+
+## 025. Why a drift module rather than regenerate and diff?
+
+| | |
+|---|---|
+| **Date** | 2026-09-01 |
+| **Phase** | Continuous integration |
+| **Author** | Frédéric |
+| **Fidelity** | Verbatim |
+
+**Prompt**
+
+> why a checkdrift and not just generate run and if git changes appear in the ci it mean it have drifted
+
+**What it produced**
+
+The right question, and it removed code before that code was written. Regenerating everything and
+failing on a `git diff` already existed as `check-generated`, and it covers derived artefacts
+completely. It cannot catch the implementation drifting, because `main.py` is hand-written and
+nothing regenerates it: a renamed route would leave the diff empty.
+
+That remaining gap needed a comparison, and a comparison is a test. It lives in
+`test_contract.py`, where pytest already writes the failure message. The `app/check_drift.py`
+module and the `just check-drift` recipe the `justfile` had promised were **removed rather than
+written**.
+
+**Changes made to the output**
+
+The limit of the surviving check was then measured rather than assumed, by injecting four
+deliberate drifts. A renamed path, a changed media type and an omitted title are caught by the
+document comparison. Changing a status the code returns is not, because statuses are declared in
+the route decorator, so the served document does not move; the behavioural scenarios catch that
+one. That division of labour is now recorded in
+[`architecture.md`](architecture.md) § 7.1 and
+[ADR-0007](decisions/0007-api-first-openapi-contract.md).
+
+## 026. KISS
+
+| | |
+|---|---|
+| **Date** | 2026-09-01 |
+| **Phase** | Continuous integration |
+| **Author** | Frédéric |
+| **Fidelity** | Verbatim |
+
+**Prompt**
+
+> kiss
+
+**What it produced**
+
+Ratification of the previous answer: one module and one recipe removed rather than written, and
+the remaining comparison left as ordinary tests. A one-word prompt invoking
+[`../.claude/rules/principles.md`](../.claude/rules/principles.md), which is what a rules file is
+for.
+
+**Changes made to the output**
+
+No changes. The output was accepted as produced.
+
+## 027. Behaviour as Gherkin
+
+| | |
+|---|---|
+| **Date** | 2026-09-01 |
+| **Phase** | Tests |
+| **Author** | Frédéric |
+| **Fidelity** | Verbatim |
+
+**Prompt**
+
+> for the test use gherkin with bdd -> https://pytest-bdd.readthedocs.io/en/stable/
+
+**What it produced**
+
+43 scenarios in two feature files under `backend/tests/features/`, run by `pytest-bdd`, with steps
+that speak about calculations rather than about JSON keys. Scoped deliberately to behaviour: the
+arithmetic engine stays parametrised pytest units, and the structural comparison against the
+contract stays plain pytest, because neither describes behaviour.
+
+The hand-written behavioural test file was deleted rather than kept alongside, since two
+descriptions of the same behaviour is the duplication the DRY rule forbids.
+
+**Changes made to the output**
+
+Writing the scenarios found a real defect: results were being returned with trailing zeros, so 20
+percent of 50 read `10.0` and one square root read `3.000000000000000000000000000`. Results are
+now returned in canonical form by `to_wire` in the HTTP layer, value unchanged. Recorded in
+[`architecture.md`](architecture.md) § 8.2 and
+[ADR-0004](decisions/0004-exact-decimal-arithmetic.md).
+
+## 028. End to end against the development server
+
+| | |
+|---|---|
+| **Date** | 2026-09-01 |
+| **Phase** | Tests |
+| **Author** | Frédéric |
+| **Fidelity** | Verbatim |
+
+**Prompt**
+
+> use playwright and test frontend http://localhost:5173/
+
+**What it produced**
+
+Three Playwright scenarios against the Vite development server, which Playwright starts itself
+through its `webServer` option, so `just e2e` needs nothing running first. They began as one and
+grew two companions because each proves something the others cannot: exactness end to end,
+chaining on the exact value, and a server-authored error reaching the screen.
+
+**Changes made to the output**
+
+The chaining scenario found the most serious defect in the project. Operands allowed 25 fractional
+digits and no exponent, while results carry 28 significant digits and may carry one, so **the
+contract could not accept its own output**: dividing one by three and multiplying the answer by
+three was rejected by our own generated validation. Operands and results now share one `Decimal`
+grammar.
+
+Only an end-to-end chain could have found it, because only a chain feeds output back in as input.
+The earlier argument that excluding scientific notation kept "one parsing rule instead of two" was
+wrong in its own terms: it created two, one for input and one for output. Corrected in
+[`architecture.md`](architecture.md) § 3.3 and
+[ADR-0004](decisions/0004-exact-decimal-arithmetic.md), with the scenario "A result can be fed
+straight back in as an operand" as the regression guard.

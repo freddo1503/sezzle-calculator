@@ -64,7 +64,7 @@ The contract is therefore enforced at **four** points, not two:
 | # | Point | Catches |
 |---|---|---|
 | 1 | Backend generated Pydantic models | An implementation that cannot express the contract |
-| 2 | Continuous integration drift check | A contract and an implementation that have diverged |
+| 2 | Continuous integration, `check-generated` plus the contract tests | A contract and an implementation that have diverged |
 | 3 | Frontend compile-time types | A client that tries to send or read the wrong shape |
 | 4 | Frontend runtime Zod validation | A backend that violates the contract in production |
 
@@ -124,8 +124,8 @@ exists. Those are materially different things, and both are true at once.
   the alternative is that the central claim of this submission is never tested against
   anything but a generator.
 - **Two generators to configure and keep working**, on a 2 to 4 hour budget.
-- **Committed generated code can go stale.** Mitigated by the freshness checks, which are two
-  more gates to maintain.
+- **Committed generated code can go stale.** Mitigated by `check-generated`, which regenerates
+  everything and fails on any `git diff`.
 - **Generated code is not idiomatic hand-written code**, and a reviewer skimming it may read
   it as such. It is committed anyway, because being able to read the types without running a
   generator is worth more.

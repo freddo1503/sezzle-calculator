@@ -177,7 +177,8 @@ file would then always match itself and the check would be permanently red.
   as intended discipline, never as a guarantee about every commit.
 - **Development is host-native.** `just dev` installs and runs both layers on the host, with no
   container and no build. Docker Compose is a separate recipe with two jobs only: the
-  one-command assembled run, and hosting the single Playwright smoke test. Never describe
+  one-command assembled run under `just up`. The end-to-end scenarios run against the development
+  server, which Playwright starts itself. Never describe
   Docker as the development environment.
 - **Same-origin by construction.** The frontend calls a relative path, proxied to the backend in
   both paths. The backend has no Cross-Origin Resource Sharing configuration. Any text

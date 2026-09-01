@@ -54,10 +54,18 @@ enumeration. It is a source file, edited deliberately, not a build output.
 **2. The backend implements the contract.** Pydantic models exist to satisfy `openapi.yaml`,
 not to define it. When the two disagree, the contract is right and the code is wrong.
 
-**3. A continuous integration check compares FastAPI's generated OpenAPI document against
-the committed `openapi.yaml` and fails on any difference.** This is the most important
-element of this decision and the only reason the rest of it is true rather than
-aspirational. Without this gate, "API-first" is a description of intent that the repository
+**3. Continuous integration fails when anything drifts from the contract, in two parts.**
+`check-generated` regenerates every derived artefact and fails on any `git diff`, so no bespoke
+comparison step is needed for those. The document the application serves is compared against the
+committed contract by ordinary tests in `test_contract.py`. This is the most important element of
+this decision and the only reason the rest of it is true rather than aspirational.
+
+Its limit was measured rather than assumed, by injecting four deliberate drifts. A renamed path, a
+changed media type and an omitted title are all caught by the document comparison. **Changing a
+status the code returns is not**, because statuses are declared in the route decorator, so the
+served document does not move; the behavioural scenarios catch that one. Document comparison
+catches shape drift, behaviour catches behavioural drift, and neither substitutes for the
+other. Without this gate, "API-first" is a description of intent that the repository
 cannot verify; with it, the contract is enforced on every push. Directionally, this inverts
 FastAPI's default: the framework still generates a document, but that document is now a
 *test subject* compared against the source of truth rather than being the source of truth.
@@ -94,8 +102,7 @@ affordable here.
   contract would bind only as far as discipline reached. See
   [ADR-0008](0008-generate-all-wire-types.md).
 - **JSON Schema or a hand-written contract in prose.** Rejected: OpenAPI is what FastAPI
-  already emits, which is what makes the drift check a direct comparison rather than a
-  translation.
+  already emits, which is what makes the comparison direct rather than a translation.
 
 ## Consequences
 
@@ -111,12 +118,12 @@ affordable here.
 
 - **It works against FastAPI's grain**, which costs setup time and needs explaining to any
   reader who expects the conventional code-first flow. This ADR is that explanation.
-- **The drift check will be irritating**, by design. Any deliberate contract change means
+- **The drift gates will be irritating**, by design. Any deliberate contract change means
   editing `openapi.yaml` and regenerating, in the same commit. That friction is the feature,
   but it is still friction.
 - **Two generated artefacts are committed** (the frontend types), and committed generated
-  code always risks going stale. Mitigated by the freshness check, which is itself another
-  gate to maintain.
+  code always risks going stale. Mitigated by `check-generated`, which regenerates and fails on
+  any `git diff`, and which is itself another gate to maintain.
 - **Budget cost.** Authoring the contract by hand, wiring two checks, and configuring
   generation is real time on a 2 to 4 hour exercise, spent on process rather than features.
 

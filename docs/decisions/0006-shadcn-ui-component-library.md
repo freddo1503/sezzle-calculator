@@ -129,6 +129,9 @@ Three real costs, none of them glossed.
 
 ### Neutral
 
+- The shadcn command-line tool now defaults to Base UI primitives, but the `Button` it generated
+  here uses `radix-ui`, so this record stands as written. Its `components.json` was hand-authored,
+  because the tool's interactive prompt cannot run non-interactively.
 - Generated component source is committed and thereafter maintained by this repository. Upstream
   improvements are not received automatically, which is the trade that owning the code implies.
 - Biome remains the linter and formatter ([ADR-0009](0009-toolchain.md)) and coexists with
