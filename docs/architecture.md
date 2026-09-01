@@ -51,11 +51,31 @@ constraint here: anything unasked for is a defect, not a bonus.
 
 ## 3. Context and scope
 
-One human actor, no external systems, no persistence, no third-party call at runtime. A C4
-(context, container, component, code) *system context* diagram is deliberately omitted: one
-actor and zero external systems would restate the container view with less information.
+One human actor, no external systems, no persistence, no third-party call at runtime. The C4
+(context, container, component, code) model is used at three levels: system context below,
+containers in 3.2, components in 5.2. Code-level diagrams are omitted, since generated types and
+pure functions are read faster than they are drawn.
 
-### 3.1 Container view
+### 3.1 System context
+
+```mermaid
+C4Context
+    title System context: Sezzle Calculator
+
+    Person(user, "User", "Wants an arithmetic answer that is exactly right")
+
+    System(calc, "Sezzle Calculator", "Evaluates one arithmetic operation per request, in exact decimal arithmetic")
+
+    Rel(user, calc, "Enters a calculation, reads the result", "HTTPS")
+```
+
+The diagram is deliberately this thin, and its thinness is the finding rather than an omission:
+the system has **no external dependency at runtime**. No database, no third-party API, no
+authentication provider, no message broker. Everything that could fail is inside the boundary,
+which is why the quality scenarios in section 10 can all be stated as properties of our own code
+and why the deployment view in section 7 has nothing to configure but two processes.
+
+### 3.2 Container view
 
 ```mermaid
 C4Container
@@ -72,7 +92,7 @@ C4Container
     Rel(spa, api, "Requests one binary calculation", "HTTP, JSON")
 ```
 
-### 3.2 External interfaces
+### 3.3 External interfaces
 
 The user reaches the single-page application (SPA) over Hypertext Transfer Protocol Secure
 (HTTPS); the SPA calls the API over HTTP with JSON at `POST /api/calculate`.
@@ -443,5 +463,5 @@ elsewhere. One item qualifies.
 
 Everything else that once sat here has been decided and moved to where a reader meets it as a
 property of the system: percentage semantics, operand bounds and the negative-base exponent rule
-to § 3.2, and precision with display-only rounding to § 8.2. A settled assumption is not an
+to § 3.3, and precision with display-only rounding to § 8.2. A settled assumption is not an
 assumption, and listing one would understate what this submission knows.

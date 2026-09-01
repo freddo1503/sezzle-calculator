@@ -46,7 +46,7 @@ The mapping from arc42 sections to this wiki:
 |---|---|---|
 | 1 Introduction and Goals | `architecture.md` § 1 | Includes the requirement-to-implementation trace table |
 | 2 Constraints | `architecture.md` § 2 | Technical, organizational, conventions |
-| 3 Context and Scope | `architecture.md` § 3 | Container diagram only, see below |
+| 3 Context and Scope | `architecture.md` § 3 | System context, container view, external interfaces |
 | 4 Solution Strategy | `architecture.md` § 4 | Table of quality goal to approach to ADR |
 | 5 Building Block View | `architecture.md` § 5 | Level 1 containers, Level 2 backend components |
 | 6 Runtime View | `architecture.md` § 6 | One sequence diagram, success and error path |
@@ -59,8 +59,6 @@ The mapping from arc42 sections to this wiki:
 
 **Deliberate omissions**, all three recorded in the documents rather than left silent:
 
-- **No C4 system context diagram.** One actor, zero external systems, so it would restate
-  the container diagram with less information. Noted in `architecture.md` § 3.
 - **No glossary.** Every candidate term is one a competent reviewer already knows. Acronyms
   are expanded inline on first use instead.
 - **No stakeholder table.** One author and one evaluator, which is a sentence in § 1.
