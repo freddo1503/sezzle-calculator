@@ -1,0 +1,17 @@
+# The assembled stack: one command runs both layers without a toolchain.
+# Not the development path, which is host-native (just dev). See ADR-0009 and
+# architecture.md section 7.
+
+services:
+  api:
+    build: ./backend
+    # Not published: the interface reaches it on the compose network, and the
+    # only door into the stack is the web server, as it would be in production.
+
+  web:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      api:
+        condition: service_healthy
