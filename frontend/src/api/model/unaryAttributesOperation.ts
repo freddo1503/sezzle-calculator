@@ -14,11 +14,10 @@
  *
  * OpenAPI spec version: 1.0.0
  */
-import type { CalculationResource } from './calculationResource';
 
-/**
- * A JSON:API document whose primary data is a new calculation.
- */
-export interface CalculationRequest {
-  data: CalculationResource;
-}
+export type UnaryAttributesOperation = typeof UnaryAttributesOperation[keyof typeof UnaryAttributesOperation];
+
+
+export const UnaryAttributesOperation = {
+  sqrt: 'sqrt',
+} as const;

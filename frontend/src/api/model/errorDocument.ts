@@ -14,11 +14,15 @@
  *
  * OpenAPI spec version: 1.0.0
  */
-import type { CalculationResource } from './calculationResource';
+import type { ErrorObject } from './errorObject';
 
 /**
- * A JSON:API document whose primary data is a new calculation.
+ * JSON:API requires errors to be an array at the top level, and forbids
+ * `data` and `errors` from coexisting. One shape for every failure at every
+ * status means the client has one error path rather than one per failure
+ * mode. See ADR-0005.
  */
-export interface CalculationRequest {
-  data: CalculationResource;
+export interface ErrorDocument {
+  /** @minItems 1 */
+  errors: ErrorObject[];
 }

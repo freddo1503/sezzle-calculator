@@ -14,11 +14,11 @@
  *
  * OpenAPI spec version: 1.0.0
  */
-import type { CalculationResource } from './calculationResource';
+import type { BinaryAttributes } from './binaryAttributes';
+import type { UnaryAttributes } from './unaryAttributes';
 
 /**
- * A JSON:API document whose primary data is a new calculation.
+ * Discriminated on `operation`, so operand arity is a property of the
+ * contract rather than a check written twice. Rationale in ADR-0003.
  */
-export interface CalculationRequest {
-  data: CalculationResource;
-}
+export type CalculationAttributes = BinaryAttributes | UnaryAttributes;

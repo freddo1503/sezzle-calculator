@@ -14,11 +14,15 @@
  *
  * OpenAPI spec version: 1.0.0
  */
-import type { CalculationResource } from './calculationResource';
 
-/**
- * A JSON:API document whose primary data is a new calculation.
- */
-export interface CalculationRequest {
-  data: CalculationResource;
-}
+export type BinaryAttributesOperation = typeof BinaryAttributesOperation[keyof typeof BinaryAttributesOperation];
+
+
+export const BinaryAttributesOperation = {
+  add: 'add',
+  subtract: 'subtract',
+  multiply: 'multiply',
+  divide: 'divide',
+  percent: 'percent',
+  power: 'power',
+} as const;

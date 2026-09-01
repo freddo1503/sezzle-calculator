@@ -14,11 +14,20 @@
  *
  * OpenAPI spec version: 1.0.0
  */
-import type { CalculationResource } from './calculationResource';
+import type { ErrorCode } from './errorCode';
+import type { ErrorSource } from './errorSource';
 
-/**
- * A JSON:API document whose primary data is a new calculation.
- */
-export interface CalculationRequest {
-  data: CalculationResource;
+export interface ErrorObject {
+  /** The HTTP status code, as a string, per JSON:API. */
+  status: string;
+  code: ErrorCode;
+  /** A short summary, the same for every occurrence of a code. */
+  title: string;
+  /**
+     * What went wrong this time. Owned by the server and rendered by the
+     * client as it arrives: the client holds no table of its own, so a new
+     * code displays correctly with no frontend change.
+     */
+  detail?: string;
+  source?: ErrorSource;
 }

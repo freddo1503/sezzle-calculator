@@ -14,11 +14,13 @@
  *
  * OpenAPI spec version: 1.0.0
  */
-import type { CalculationResource } from './calculationResource';
 
 /**
- * A JSON:API document whose primary data is a new calculation.
+ * Points at what caused the error. `pointer` is an RFC 6901 JSON Pointer into
+ * the request document, so `/data/attributes/operands/1` names the second
+ * operand exactly, without the client having to know an index convention.
  */
-export interface CalculationRequest {
-  data: CalculationResource;
+export interface ErrorSource {
+  pointer?: string;
+  parameter?: string;
 }

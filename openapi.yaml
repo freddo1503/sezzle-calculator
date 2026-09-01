@@ -1,29 +1,32 @@
-# The contract. This file is authored by hand and is the source of truth for both
-# layers. The backend's Pydantic models and the frontend's types, client and Zod
-# schemas are all generated from it, and continuous integration fails when either
-# side drifts. See docs/decisions/0007-api-first-openapi-contract.md and
-# docs/decisions/0008-generate-all-wire-types.md.
+# The contract. Hand-authored, and the source of truth for both layers: the
+# backend's Pydantic models and the frontend's types, client and Zod schemas are
+# all generated from it. See docs/decisions/0007 and 0008.
 #
-# Nothing here may be edited to match an implementation. The implementation is what
-# changes.
+# The document format is JSON:API v1.1 (https://jsonapi.org/format/), including
+# its media type, its data/errors top level and its error objects. The one place
+# it strains is recorded in docs/decisions/0010: JSON:API is resource-oriented
+# and states that it defines no mechanism for remote-procedure-style operations,
+# which a calculation is.
+#
+# Nothing here may be edited to match an implementation. The implementation is
+# what changes.
 
 openapi: 3.1.0
 
 info:
   title: Calculator API
   version: 1.0.0
-  summary: Exact decimal arithmetic over HTTP.
+  summary: Exact decimal arithmetic, served as JSON:API.
   description: |
-    One endpoint evaluates one arithmetic operation on one or two operands.
+    Posting a calculation resource evaluates one arithmetic operation and returns
+    the same resource with its `result` filled in.
 
-    Operands and results are JSON **strings**, never JSON numbers. A JSON number is
-    parsed by a browser into an IEEE-754 double, which would silently destroy the
-    exactness the server just computed: `0.1 + 0.2` would arrive as
-    `0.30000000000000004` after a round trip through `JSON.parse`. Strings cross the
-    wire intact and are converted to a decimal type on each side.
-
-    Results carry full precision. Rounding for display is the frontend's business and
-    never re-enters a calculation.
+    Operands and results are JSON **strings**, never JSON numbers. A JSON number
+    is reparsed by a browser into an IEEE-754 double, which would destroy the
+    exactness the server just computed: `0.1 + 0.2` would come back as
+    `0.30000000000000004` after `JSON.parse`. Results carry full precision, and
+    rounding for display is the client's business and never re-enters a
+    calculation.
   license:
     name: MIT
     identifier: MIT
@@ -32,92 +35,125 @@ servers:
   - url: /api
     description: |
       Same-origin relative path. The Vite development server and the static file
-      server in the Compose stack both proxy this prefix to the backend, so the
-      frontend never holds an absolute address and the backend needs no cross-origin
-      configuration.
+      server in the assembled stack both proxy this prefix to the backend, so no
+      absolute address is compiled into the frontend and the backend carries no
+      cross-origin configuration.
+
+tags:
+  - name: calculations
+    description: Arithmetic evaluated on demand.
 
 paths:
-  /calculate:
+  /calculations:
     post:
-      operationId: calculate
+      operationId: createCalculation
+      tags: [calculations]
       summary: Evaluate one arithmetic operation.
       description: |
-        The request is a discriminated union on `operation`. The discriminator selects
-        the operand arity: `sqrt` takes one operand, every other operation takes two.
+        The request carries a calculation resource with no `id`, which JSON:API
+        permits for a resource originating at the client. The response carries the
+        same resource with a server-assigned `id` and the computed `result`.
+
+        The response is `200 OK`, not `201 Created`, and deliberately so: nothing
+        is stored, so there is no location to point a `Location` header at and no
+        `self` link that would resolve. The `id` identifies this evaluation, not a
+        retrievable record.
       requestBody:
         required: true
         content:
-          application/json:
+          application/vnd.api+json:
             schema:
               $ref: "#/components/schemas/CalculationRequest"
             examples:
               exactAddition:
                 summary: The case binary floating point gets wrong
                 value:
-                  operation: add
-                  operands: ["0.1", "0.2"]
+                  data:
+                    type: calculations
+                    attributes:
+                      operation: add
+                      operands: ["0.1", "0.2"]
               squareRoot:
                 summary: A unary operation
                 value:
-                  operation: sqrt
-                  operands: ["2"]
-              percentage:
-                summary: 20 percent of 50
-                value:
-                  operation: percent
-                  operands: ["20", "50"]
+                  data:
+                    type: calculations
+                    attributes:
+                      operation: sqrt
+                      operands: ["2"]
       responses:
         "200":
           description: The operation was evaluated.
           content:
-            application/json:
+            application/vnd.api+json:
               schema:
-                $ref: "#/components/schemas/CalculationResult"
+                $ref: "#/components/schemas/CalculationResponse"
               examples:
                 exactAddition:
                   summary: Exactly three tenths, not 0.30000000000000004
                   value:
-                    result: "0.3"
+                    data:
+                      type: calculations
+                      id: 018f3a2b-4c5d-7e8f-9a0b-1c2d3e4f5a6b
+                      attributes:
+                        operation: add
+                        operands: ["0.1", "0.2"]
+                        result: "0.3"
         "400":
           description: |
-            The request body could not be parsed as JSON. This is the only status the
-            service uses for a malformed request; anything that parses is a 422.
+            The request body could not be parsed. The only status used for a
+            malformed request: anything that parses is a 422.
           content:
-            application/json:
+            application/vnd.api+json:
               schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
+                $ref: "#/components/schemas/ErrorDocument"
               examples:
                 malformed:
                   value:
-                    error:
-                      code: MALFORMED_REQUEST
-                      message: Request body is not valid JSON.
+                    errors:
+                      - status: "400"
+                        code: MALFORMED_REQUEST
+                        title: Malformed request
+                        detail: Request body is not valid JSON.
         "422":
           description: |
             The request was understood but cannot be evaluated. This covers schema
-            violations and mathematical domain errors alike, including division by
-            zero: the request is well formed and the server understood it perfectly,
-            it simply has no answer to give. See RFC 9110 section 15.5.21.
+            violations and mathematical domain errors alike, division by zero
+            included: the request is well formed and understood, it simply has no
+            answer. See RFC 9110 section 15.5.21.
           content:
-            application/json:
+            application/vnd.api+json:
               schema:
-                $ref: "#/components/schemas/ErrorEnvelope"
+                $ref: "#/components/schemas/ErrorDocument"
               examples:
                 divisionByZero:
                   value:
-                    error:
-                      code: DIVISION_BY_ZERO
-                      message: Division by zero is undefined.
-                      details:
-                        operation: divide
-                        operand_index: 1
+                    errors:
+                      - status: "422"
+                        code: DIVISION_BY_ZERO
+                        title: Division by zero
+                        detail: Division by zero is undefined.
+                        source:
+                          pointer: /data/attributes/operands/1
                 invalidOperand:
                   value:
-                    error:
-                      code: INVALID_OPERAND
-                      message: Operand is not a valid decimal number.
-                      details:
-                        operand_index: 1
+                    errors:
+                      - status: "422"
+                        code: INVALID_OPERAND
+                        title: Invalid operand
+                        detail: Operand is not a valid decimal number.
+                        source:
+                          pointer: /data/attributes/operands/1
+        "415":
+          description: |
+            The request did not use the JSON:API media type. Required by the
+            specification, which says a server MUST respond 415 to a request whose
+            `Content-Type` header is `application/vnd.api+json` with any media type
+            parameters, and more generally to an unsupported media type.
+          content:
+            application/vnd.api+json:
+              schema:
+                $ref: "#/components/schemas/ErrorDocument"
 
 components:
   schemas:
@@ -126,8 +162,7 @@ components:
       title: Operand
       description: |
         A decimal number in plain notation, at most 25 integer and 25 fractional
-        digits. Scientific notation is not accepted. The bound is stated once here and
-        enforced by both generated layers. Rationale in ADR-0004.
+        digits. Scientific notation is not accepted. Rationale in ADR-0004.
       pattern: '^-?[0-9]{1,25}(\.[0-9]{1,25})?$'
       maxLength: 52
       examples: ["0.1", "-42", "3.14159265358979323846"]
@@ -138,17 +173,17 @@ components:
       enum: [add, subtract, multiply, divide, power, percent]
       description: |
         `percent` is `a / 100 * b`, that is "a percent of b": `percent(20, 50)` is
-        `10`. The postfix percent of physical calculators is not implemented, because
-        its meaning depends on the pending operation, which would put an arithmetic
-        rule in the interface.
+        `10`. The postfix percent of physical calculators is not implemented,
+        because its meaning depends on the pending operation, which would put an
+        arithmetic rule in the interface.
 
-        `power` takes the base then the exponent. No exponent bound is declared: the
-        decimal context's own range rejects a catastrophic exponent in microseconds,
-        so a contract-level bound would be machinery that protects nothing.
+        `power` takes the base then the exponent. No exponent bound is declared:
+        the decimal context's own range rejects a catastrophic exponent in
+        microseconds, so a contract-level bound would protect nothing.
 
-    BinaryCalculation:
+    BinaryAttributes:
       type: object
-      title: BinaryCalculation
+      title: BinaryAttributes
       description: An operation on two operands.
       required: [operation, operands]
       additionalProperties: false
@@ -162,9 +197,9 @@ components:
           minItems: 2
           maxItems: 2
 
-    UnaryCalculation:
+    UnaryAttributes:
       type: object
-      title: UnaryCalculation
+      title: UnaryAttributes
       description: An operation on one operand.
       required: [operation, operands]
       additionalProperties: false
@@ -179,50 +214,119 @@ components:
           minItems: 1
           maxItems: 1
 
-    CalculationRequest:
-      title: CalculationRequest
+    CalculationAttributes:
+      title: CalculationAttributes
       description: |
-        Discriminated on `operation`. Six values map to the two-operand shape and
-        `sqrt` to the one-operand shape, so operand arity is a property of the contract
-        rather than a check written twice. Rationale in ADR-0003.
+        Discriminated on `operation`, so operand arity is a property of the
+        contract rather than a check written twice. Rationale in ADR-0003.
       oneOf:
-        - $ref: "#/components/schemas/BinaryCalculation"
-        - $ref: "#/components/schemas/UnaryCalculation"
+        - $ref: "#/components/schemas/BinaryAttributes"
+        - $ref: "#/components/schemas/UnaryAttributes"
       discriminator:
         propertyName: operation
         mapping:
-          add: "#/components/schemas/BinaryCalculation"
-          subtract: "#/components/schemas/BinaryCalculation"
-          multiply: "#/components/schemas/BinaryCalculation"
-          divide: "#/components/schemas/BinaryCalculation"
-          percent: "#/components/schemas/BinaryCalculation"
-          power: "#/components/schemas/BinaryCalculation"
-          sqrt: "#/components/schemas/UnaryCalculation"
+          add: "#/components/schemas/BinaryAttributes"
+          subtract: "#/components/schemas/BinaryAttributes"
+          multiply: "#/components/schemas/BinaryAttributes"
+          divide: "#/components/schemas/BinaryAttributes"
+          percent: "#/components/schemas/BinaryAttributes"
+          power: "#/components/schemas/BinaryAttributes"
+          sqrt: "#/components/schemas/UnaryAttributes"
 
-    CalculationResult:
+    CalculationRequest:
       type: object
-      title: CalculationResult
-      description: |
-        The exact result, at the full precision of the server's decimal context, which
-        is Python's default of twenty-eight significant digits. The client rounds for
-        display and must chain subsequent operations on this value, never on what the
-        screen shows.
-      required: [result]
+      title: CalculationRequest
+      description: A JSON:API document whose primary data is a new calculation.
+      required: [data]
       additionalProperties: false
       properties:
+        data:
+          $ref: "#/components/schemas/CalculationResource"
+
+    CalculationResource:
+      type: object
+      title: CalculationResource
+      description: |
+        A calculation as the client states it. No `id`, which JSON:API permits for
+        a resource originating at the client.
+      required: [type, attributes]
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          const: calculations
+        attributes:
+          $ref: "#/components/schemas/CalculationAttributes"
+
+    ResultAttributes:
+      type: object
+      title: ResultAttributes
+      description: |
+        The request's own attributes, echoed back, plus the result. Echoing them
+        keeps the response self-describing, which matters because nothing is
+        stored and the client cannot fetch the calculation again to see what was
+        asked.
+      required: [operation, operands, result]
+      additionalProperties: false
+      properties:
+        operation:
+          type: string
+          enum: [add, subtract, multiply, divide, power, percent, sqrt]
+        operands:
+          type: array
+          items:
+            $ref: "#/components/schemas/Operand"
+          minItems: 1
+          maxItems: 2
         result:
           type: string
+          description: |
+            The exact result, at the full precision of the server's decimal
+            context (28 significant digits). Clients round for display only and
+            must chain subsequent operations on this value, never on what the
+            screen shows. See ADR-0004.
           pattern: '^-?[0-9]+(\.[0-9]+)?([eE][-+]?[0-9]+)?$'
           examples: ["0.3", "1.414213562373095048801688724"]
+
+    CalculationResponse:
+      type: object
+      title: CalculationResponse
+      description: A JSON:API document whose primary data is the evaluated calculation.
+      required: [data]
+      additionalProperties: false
+      properties:
+        data:
+          $ref: "#/components/schemas/EvaluatedCalculationResource"
+
+    EvaluatedCalculationResource:
+      type: object
+      title: EvaluatedCalculationResource
+      description: A calculation as the server returns it, with its result.
+      required: [type, id, attributes]
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          const: calculations
+        id:
+          type: string
+          format: uuid
+          description: |
+            Assigned by the server to identify this evaluation. It is not a
+            retrievable record: nothing is stored, so no `self` link is offered
+            and no `GET` will find it.
+        attributes:
+          $ref: "#/components/schemas/ResultAttributes"
 
     ErrorCode:
       type: string
       title: ErrorCode
       description: |
-        The stable, machine-readable reason. Clients branch on this and never on
-        `message`, whose wording belongs to the server and may change.
+        The stable, machine-readable reason, carried in JSON:API's `code` member.
+        Clients branch on this, never on `title` or `detail`.
       enum:
         - MALFORMED_REQUEST
+        - UNSUPPORTED_MEDIA_TYPE
         - VALIDATION_ERROR
         - UNKNOWN_OPERATION
         - WRONG_OPERAND_COUNT
@@ -233,34 +337,58 @@ components:
         - UNDEFINED_RESULT
         - RESULT_OVERFLOW
 
-    Error:
+    ErrorSource:
       type: object
-      title: Error
-      required: [code, message]
+      title: ErrorSource
+      description: |
+        Points at what caused the error. `pointer` is an RFC 6901 JSON Pointer into
+        the request document, so `/data/attributes/operands/1` names the second
+        operand exactly, without the client having to know an index convention.
       additionalProperties: false
       properties:
+        pointer:
+          type: string
+          examples: ["/data/attributes/operands/1"]
+        parameter:
+          type: string
+
+    ErrorObject:
+      type: object
+      title: ErrorObject
+      required: [status, code, title]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          description: The HTTP status code, as a string, per JSON:API.
+          examples: ["422"]
         code:
           $ref: "#/components/schemas/ErrorCode"
-        message:
+        title:
+          type: string
+          description: A short summary, the same for every occurrence of a code.
+        detail:
           type: string
           description: |
-            Human-readable text, owned by the server and rendered by the client as it
-            arrives. The client holds no table of its own, so a new code displays
-            correctly with no frontend change.
-        details:
-          type: object
-          description: Structured context for the failure. Shape depends on the code.
-          additionalProperties: true
+            What went wrong this time. Owned by the server and rendered by the
+            client as it arrives: the client holds no table of its own, so a new
+            code displays correctly with no frontend change.
+        source:
+          $ref: "#/components/schemas/ErrorSource"
 
-    ErrorEnvelope:
+    ErrorDocument:
       type: object
-      title: ErrorEnvelope
+      title: ErrorDocument
       description: |
-        Every failure has this shape, at every status. One envelope means the client
-        has one error path instead of one per failure mode, and it is enforced
-        structurally rather than by convention.
-      required: [error]
+        JSON:API requires errors to be an array at the top level, and forbids
+        `data` and `errors` from coexisting. One shape for every failure at every
+        status means the client has one error path rather than one per failure
+        mode. See ADR-0005.
+      required: [errors]
       additionalProperties: false
       properties:
-        error:
-          $ref: "#/components/schemas/Error"
+        errors:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ErrorObject"

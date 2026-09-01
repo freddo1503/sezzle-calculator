@@ -14,11 +14,11 @@
  *
  * OpenAPI spec version: 1.0.0
  */
-import type { CalculationResource } from './calculationResource';
+import type { EvaluatedCalculationResource } from './evaluatedCalculationResource';
 
 /**
- * A JSON:API document whose primary data is a new calculation.
+ * A JSON:API document whose primary data is the evaluated calculation.
  */
-export interface CalculationRequest {
-  data: CalculationResource;
+export interface CalculationResponse {
+  data: EvaluatedCalculationResource;
 }

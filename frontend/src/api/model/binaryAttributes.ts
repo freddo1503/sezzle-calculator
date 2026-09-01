@@ -14,11 +14,17 @@
  *
  * OpenAPI spec version: 1.0.0
  */
-import type { CalculationResource } from './calculationResource';
+import type { BinaryAttributesOperation } from './binaryAttributesOperation';
+import type { Operand } from './operand';
 
 /**
- * A JSON:API document whose primary data is a new calculation.
+ * An operation on two operands.
  */
-export interface CalculationRequest {
-  data: CalculationResource;
+export interface BinaryAttributes {
+  operation: BinaryAttributesOperation;
+  /**
+     * @minItems 2
+     * @maxItems 2
+     */
+  operands: Operand[];
 }

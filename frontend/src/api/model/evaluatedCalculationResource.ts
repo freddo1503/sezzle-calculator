@@ -14,11 +14,18 @@
  *
  * OpenAPI spec version: 1.0.0
  */
-import type { CalculationResource } from './calculationResource';
+import type { ResultAttributes } from './resultAttributes';
 
 /**
- * A JSON:API document whose primary data is a new calculation.
+ * A calculation as the server returns it, with its result.
  */
-export interface CalculationRequest {
-  data: CalculationResource;
+export interface EvaluatedCalculationResource {
+  type: 'calculations';
+  /**
+     * Assigned by the server to identify this evaluation. It is not a
+     * retrievable record: nothing is stored, so no `self` link is offered
+     * and no `GET` will find it.
+     */
+  id: string;
+  attributes: ResultAttributes;
 }
