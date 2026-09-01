@@ -80,11 +80,20 @@ The user reaches the single-page application (SPA) over Hypertext Transfer Proto
 Two semantics the contract fixes. **Percentage** is `percent(a, b) = a / 100 * b`, so
 `percent(20, 50)` is `10`, sitting on the keypad as a binary operator like division rather than
 as the context-sensitive postfix percent of physical calculators, whose meaning depends on the
-pending operator and which surprises people. **Operands are bounded**, the contract declares the
-bound, and an oversized operand fails as `OPERAND_OUT_OF_RANGE`. **A negative base with a
-fractional exponent is a domain error**, since the real-valued result does not exist.
+pending operator and which surprises people. **A negative base with a fractional exponent is a
+domain error**, since the real-valued result does not exist.
 
-> **TODO** State the operand bound once `openapi.yaml` fixes the number.
+**Operands are bounded, and the contract declares the bound**: at most 25 integer and 25
+fractional digits, in plain notation, with scientific notation excluded because a keypad cannot
+produce it and excluding it leaves one parsing rule instead of two. An oversized operand fails
+as `OPERAND_OUT_OF_RANGE` before any arithmetic runs.
+
+The exponent of `power` carries a tighter bound of its own, under 10000 in magnitude, which is
+why `openapi.yaml` splits exponentiation into its own request shape. The base may be as large as
+any operand, so the exponent is the single input that could otherwise make the server work
+indefinitely. Bounding it in the contract turns a potential timeout into a validation error, and
+because both layers generate from that contract, the bound is written once and enforced on both
+sides.
 
 ## 4. Solution strategy
 

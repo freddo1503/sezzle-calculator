@@ -1,0 +1,297 @@
+# The contract. This file is authored by hand and is the source of truth for both
+# layers. The backend's Pydantic models and the frontend's types, client and Zod
+# schemas are all generated from it, and continuous integration fails when either
+# side drifts. See docs/decisions/0007-api-first-openapi-contract.md and
+# docs/decisions/0008-generate-all-wire-types.md.
+#
+# Nothing here may be edited to match an implementation. The implementation is what
+# changes.
+
+openapi: 3.1.0
+
+info:
+  title: Calculator API
+  version: 1.0.0
+  summary: Exact decimal arithmetic over HTTP.
+  description: |
+    One endpoint evaluates one arithmetic operation on one or two operands.
+
+    Operands and results are JSON **strings**, never JSON numbers. A JSON number is
+    parsed by a browser into an IEEE-754 double, which would silently destroy the
+    exactness the server just computed: `0.1 + 0.2` would arrive as
+    `0.30000000000000004` after a round trip through `JSON.parse`. Strings cross the
+    wire intact and are converted to a decimal type on each side.
+
+    Results carry full precision. Rounding for display is the frontend's business and
+    never re-enters a calculation.
+  license:
+    name: MIT
+    identifier: MIT
+
+servers:
+  - url: /api
+    description: |
+      Same-origin relative path. The Vite development server and the static file
+      server in the Compose stack both proxy this prefix to the backend, so the
+      frontend never holds an absolute address and the backend needs no cross-origin
+      configuration.
+
+paths:
+  /calculate:
+    post:
+      operationId: calculate
+      summary: Evaluate one arithmetic operation.
+      description: |
+        The request is a discriminated union on `operation`. The discriminator selects
+        the operand arity: `sqrt` takes one operand, `power` takes a base and a bounded
+        exponent, every other operation takes two.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalculationRequest"
+            examples:
+              exactAddition:
+                summary: The case binary floating point gets wrong
+                value:
+                  operation: add
+                  operands: ["0.1", "0.2"]
+              squareRoot:
+                summary: A unary operation
+                value:
+                  operation: sqrt
+                  operands: ["2"]
+              percentage:
+                summary: 20 percent of 50
+                value:
+                  operation: percent
+                  operands: ["20", "50"]
+      responses:
+        "200":
+          description: The operation was evaluated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalculationResult"
+              examples:
+                exactAddition:
+                  summary: Exactly three tenths, not 0.30000000000000004
+                  value:
+                    result: "0.3"
+        "400":
+          description: |
+            The request body could not be parsed as JSON. This is the only status the
+            service uses for a malformed request; anything that parses is a 422.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              examples:
+                malformed:
+                  value:
+                    error:
+                      code: MALFORMED_REQUEST
+                      message: Request body is not valid JSON.
+        "422":
+          description: |
+            The request was understood but cannot be evaluated. This covers schema
+            violations and mathematical domain errors alike, including division by
+            zero: the request is well formed and the server understood it perfectly,
+            it simply has no answer to give. See RFC 9110 section 15.5.21.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              examples:
+                divisionByZero:
+                  value:
+                    error:
+                      code: DIVISION_BY_ZERO
+                      message: Division by zero is undefined.
+                      details:
+                        operation: divide
+                        operand_index: 1
+                invalidOperand:
+                  value:
+                    error:
+                      code: INVALID_OPERAND
+                      message: Operand is not a valid decimal number.
+                      details:
+                        operand_index: 1
+
+components:
+  schemas:
+    Operand:
+      type: string
+      title: Operand
+      description: |
+        A decimal number in plain notation, at most 25 integer and 25 fractional
+        digits. Scientific notation is not accepted. The bound is stated once here and
+        enforced by both generated layers. Rationale in ADR-0004.
+      pattern: '^-?[0-9]{1,25}(\.[0-9]{1,25})?$'
+      maxLength: 52
+      examples: ["0.1", "-42", "3.14159265358979323846"]
+
+    Exponent:
+      type: string
+      title: Exponent
+      description: |
+        The exponent of a `power` operation, bounded to under 10000 in magnitude: the
+        base may be as large as any operand, so an unbounded exponent is the one input
+        that could make the server work indefinitely. Fractional exponents are allowed;
+        a negative base with one yields `UNDEFINED_RESULT`.
+      pattern: '^-?[0-9]{1,4}(\.[0-9]{1,25})?$'
+      maxLength: 31
+      examples: ["2", "0.5", "-3"]
+
+    BinaryOperation:
+      type: string
+      title: BinaryOperation
+      enum: [add, subtract, multiply, divide, percent]
+      description: |
+        `percent` is `a / 100 * b`, that is "a percent of b": `percent(20, 50)` is
+        `10`. The context-sensitive postfix percent of physical calculators is not
+        implemented, because its meaning depends on the pending operation and that
+        would put an arithmetic rule in the interface.
+
+    BinaryCalculation:
+      type: object
+      title: BinaryCalculation
+      description: An operation on two operands.
+      required: [operation, operands]
+      additionalProperties: false
+      properties:
+        operation:
+          $ref: "#/components/schemas/BinaryOperation"
+        operands:
+          type: array
+          items:
+            $ref: "#/components/schemas/Operand"
+          minItems: 2
+          maxItems: 2
+
+    PowerCalculation:
+      type: object
+      title: PowerCalculation
+      description: |
+        Exponentiation, split from the other binary operations so the contract can
+        bound the exponent without bounding every operand.
+      required: [operation, operands]
+      additionalProperties: false
+      properties:
+        operation:
+          type: string
+          const: power
+        operands:
+          type: array
+          description: The base, then the exponent.
+          prefixItems:
+            - $ref: "#/components/schemas/Operand"
+            - $ref: "#/components/schemas/Exponent"
+          minItems: 2
+          maxItems: 2
+
+    UnaryCalculation:
+      type: object
+      title: UnaryCalculation
+      description: An operation on one operand.
+      required: [operation, operands]
+      additionalProperties: false
+      properties:
+        operation:
+          type: string
+          const: sqrt
+        operands:
+          type: array
+          items:
+            $ref: "#/components/schemas/Operand"
+          minItems: 1
+          maxItems: 1
+
+    CalculationRequest:
+      title: CalculationRequest
+      description: |
+        Discriminated on `operation`. Five values map to the two-operand shape, `power`
+        to the bounded-exponent shape, and `sqrt` to the one-operand shape, so operand
+        arity is a property of the contract rather than a check written twice.
+      oneOf:
+        - $ref: "#/components/schemas/BinaryCalculation"
+        - $ref: "#/components/schemas/PowerCalculation"
+        - $ref: "#/components/schemas/UnaryCalculation"
+      discriminator:
+        propertyName: operation
+        mapping:
+          add: "#/components/schemas/BinaryCalculation"
+          subtract: "#/components/schemas/BinaryCalculation"
+          multiply: "#/components/schemas/BinaryCalculation"
+          divide: "#/components/schemas/BinaryCalculation"
+          percent: "#/components/schemas/BinaryCalculation"
+          power: "#/components/schemas/PowerCalculation"
+          sqrt: "#/components/schemas/UnaryCalculation"
+
+    CalculationResult:
+      type: object
+      title: CalculationResult
+      description: |
+        The exact result, at the full precision of the server's decimal context, which
+        is Python's default of twenty-eight significant digits. The client rounds for
+        display and must chain subsequent operations on this value, never on what the
+        screen shows.
+      required: [result]
+      additionalProperties: false
+      properties:
+        result:
+          type: string
+          pattern: '^-?[0-9]+(\.[0-9]+)?([eE][-+]?[0-9]+)?$'
+          examples: ["0.3", "1.414213562373095048801688724"]
+
+    ErrorCode:
+      type: string
+      title: ErrorCode
+      description: |
+        The stable, machine-readable reason. Clients branch on this and never on
+        `message`, whose wording belongs to the server and may change.
+      enum:
+        - MALFORMED_REQUEST
+        - VALIDATION_ERROR
+        - UNKNOWN_OPERATION
+        - WRONG_OPERAND_COUNT
+        - INVALID_OPERAND
+        - OPERAND_OUT_OF_RANGE
+        - DIVISION_BY_ZERO
+        - NEGATIVE_SQRT
+        - UNDEFINED_RESULT
+        - RESULT_OVERFLOW
+
+    Error:
+      type: object
+      title: Error
+      required: [code, message]
+      additionalProperties: false
+      properties:
+        code:
+          $ref: "#/components/schemas/ErrorCode"
+        message:
+          type: string
+          description: |
+            Human-readable text, owned by the server and rendered by the client as it
+            arrives. The client holds no table of its own, so a new code displays
+            correctly with no frontend change.
+        details:
+          type: object
+          description: Structured context for the failure. Shape depends on the code.
+          additionalProperties: true
+
+    ErrorEnvelope:
+      type: object
+      title: ErrorEnvelope
+      description: |
+        Every failure has this shape, at every status. One envelope means the client
+        has one error path instead of one per failure mode, and it is enforced
+        structurally rather than by convention.
+      required: [error]
+      additionalProperties: false
+      properties:
+        error:
+          $ref: "#/components/schemas/Error"
