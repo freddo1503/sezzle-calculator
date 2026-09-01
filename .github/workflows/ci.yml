@@ -1,0 +1,60 @@
+# Continuous integration enters through just, like a developer and like an
+# agent: no command exists only in this file. See ADR-0009.
+#
+# Blocking gates: the contract validates, generated artefacts are current, lint
+# and format pass, tests pass with coverage, and the end-to-end scenarios pass.
+# The type check is deliberately non-blocking: ty is in beta and this repository
+# pins nothing, so a beta regression must not redden a public repository while
+# it is being evaluated. Its findings still print in the job log.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: latest
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - uses: extractions/setup-just@v2
+
+      - name: Install both layers
+        run: just install
+
+      - name: The contract is a valid OpenAPI document
+        run: just check-contract
+
+      - name: Generated artefacts are current
+        run: just check-generated
+
+      - name: Lint and format, both layers
+        run: just check-lint
+
+      - name: Type check (non-blocking, ty is beta)
+        run: just typecheck
+        continue-on-error: true
+
+      - name: Tests with coverage
+        run: just coverage
+
+      - name: Browsers for the end-to-end scenarios
+        run: cd frontend && pnpm exec playwright install chromium --with-deps
+
+      - name: End to end, against the running stack
+        run: just e2e

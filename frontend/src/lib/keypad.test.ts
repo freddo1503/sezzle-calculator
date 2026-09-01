@@ -9,7 +9,7 @@ function type(...keys: string[]): KeypadState {
 /** Press keys and return the calculation the last press asked for, if any. */
 function requestAfter(...keys: string[]) {
   let state = initial;
-  let request;
+  let request: ReturnType<typeof press>["request"];
   for (const key of keys) {
     ({ state, request } = press(state, { key }));
   }
