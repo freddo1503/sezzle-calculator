@@ -84,6 +84,35 @@ def error_response(
     )
 
 
+def to_wire(value: Decimal) -> str:
+    """The canonical decimal string for a result.
+
+    Arithmetic leaves trailing zeros behind: 20 percent of 50 computes as `10.0`
+    and four times 2.5 as `10.0`, both mathematically exact and both wrong to
+    show a client. Normalising strips them without changing the value, since
+    `Decimal("10.0") == Decimal("10")`, so a client chaining on this number gets
+    the same answer either way.
+
+    The quantize step exists because `normalize` writes a trailing-zero integer
+    in scientific notation: `Decimal("10.0").normalize()` is `1E+1`. A result too
+    large to write plainly keeps its exponent, which is the honest answer for a
+    number of 250,000 digits.
+
+    This is representation, not arithmetic, which is why it lives at the boundary
+    rather than in the engine.
+    """
+    normalised = value.normalize()
+    # Not an int for a NaN or an infinity, which the engine's traps prevent but
+    # the type does not, so the guard is real rather than defensive noise.
+    exponent = normalised.as_tuple().exponent
+    if isinstance(exponent, int) and exponent > 0:
+        try:
+            return str(normalised.quantize(Decimal(1)))
+        except InvalidOperation:
+            return str(normalised)
+    return str(normalised)
+
+
 def operand_pointer(index: int | None) -> str | None:
     """An RFC 6901 pointer into the request document, per JSON:API's `source`."""
     if index is None:
@@ -191,7 +220,7 @@ async def create_calculation(
             attributes=ResultAttributes(
                 operation=operation,
                 operands=operand_strings,
-                result=str(result),
+                result=to_wire(result),
             ),
         )
     )

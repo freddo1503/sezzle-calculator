@@ -15,6 +15,7 @@ dev = [
     "httpx",
     "openapi-spec-validator",
     "pytest",
+    "pytest-bdd>=8.1.0",
     "pytest-cov",
     "pyyaml",
     "ruff",
@@ -31,6 +32,7 @@ packages = ["app"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--strict-markers --strict-config"
+bdd_features_base_dir = "tests/features"
 
 [tool.coverage.run]
 source = ["app"]
