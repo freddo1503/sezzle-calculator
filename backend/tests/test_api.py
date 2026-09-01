@@ -5,24 +5,38 @@ the document shape, the status codes, the error codes and the JSON Pointers. If
 a test needs changing because the implementation changed, the test was wrong.
 """
 
+import json
+from pathlib import Path
 from uuid import UUID
 
 import pytest
+import yaml
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.main import TITLES, app
 
 JSONAPI = "application/vnd.api+json"
 
 client = TestClient(app)
 
+contract = yaml.safe_load((Path(__file__).parents[2] / "openapi.yaml").read_text())
+served = app.openapi()
+
+
+def _post(document: dict) -> dict:
+    """The operation, or an empty dict, so a renamed path fails a test rather
+    than raising at import and reporting as a collection error."""
+    return document["paths"].get("/calculations", {}).get("post", {})
+
+
+contract_post = _post(contract)
+served_post = _post(served)
+
 
 def post(attributes: object, content_type: str = JSONAPI):
     return client.post(
         "/calculations",
-        content=__import__("json").dumps(
-            {"data": {"type": "calculations", "attributes": attributes}}
-        ),
+        content=json.dumps({"data": {"type": "calculations", "attributes": attributes}}),
         headers={"Content-Type": content_type},
     )
 
@@ -153,10 +167,58 @@ class TestDomainErrors:
         assert error["title"] != error["detail"]
 
 
-class TestContract:
-    def test_the_served_document_declares_the_same_path_as_the_contract(self):
-        assert "/calculations" in app.openapi()["paths"]
+class TestNoDriftFromTheContract:
+    """The contract is only authoritative if something checks that it is obeyed.
 
-    def test_the_served_document_declares_the_jsonapi_media_type(self):
-        operation = app.openapi()["paths"]["/calculations"]["post"]
-        assert JSONAPI in operation["requestBody"]["content"]
+    `openapi.yaml` is hand-authored and `main.py` is hand-written, so neither is
+    derived from the other and regenerating cannot compare them: `just generate`
+    would produce identical output while a route, a status or a media type had
+    quietly changed in the code. These tests are that comparison.
+
+    Only what defines behaviour on the wire is compared. Descriptions, examples,
+    titles and key order differ between a hand-written document and a generated
+    one without meaning anything, so comparing them would produce noise instead
+    of a signal.
+
+    These tests catch drift in the *shape* of the interface and cannot catch
+    drift in its *behaviour*. Changing the status the code returns for a wrong
+    media type leaves the served document untouched, since the statuses are
+    declared in the route decorator, so every test in this class still passes.
+    The behavioural tests above are what catch that, and the division of labour
+    is deliberate: these compare two documents, those exercise the service.
+    Verified by introducing each drift and watching which suite went red.
+    """
+
+    def test_the_same_paths_are_served_as_are_promised(self):
+        assert sorted(served["paths"]) == sorted(contract["paths"])
+
+    def test_the_same_server_prefix_is_declared(self):
+        assert [s["url"] for s in served["servers"]] == [s["url"] for s in contract["servers"]]
+
+    def test_the_operation_is_named_the_same(self):
+        assert served_post["operationId"] == contract_post["operationId"]
+
+    def test_the_request_accepts_the_media_type_the_contract_promises(self):
+        assert list(served_post["requestBody"]["content"]) == list(
+            contract_post["requestBody"]["content"]
+        )
+
+    def test_the_same_statuses_are_answered(self):
+        assert sorted(served_post["responses"]) == sorted(contract_post["responses"])
+
+    @pytest.mark.parametrize("code", ["200", "400", "415", "422"])
+    def test_each_response_uses_the_media_type_the_contract_promises(self, code: str):
+        assert list(served_post["responses"][code]["content"]) == list(
+            contract_post["responses"][code]["content"]
+        )
+
+    def test_every_error_code_in_the_contract_has_a_title(self):
+        """The one hand-written table that the contract cannot generate.
+
+        `TITLES` is keyed by the contract's enumeration but written by hand, so
+        adding a code to the contract without adding its title would raise a
+        KeyError on the first failure of that kind, in production, at the worst
+        possible moment.
+        """
+        declared = set(contract["components"]["schemas"]["ErrorCode"]["enum"])
+        assert declared == set(TITLES), declared.symmetric_difference(TITLES)

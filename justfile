@@ -65,10 +65,6 @@ generate-frontend:
 check-contract:
     cd {{backend}} && uv run openapi-spec-validator ../{{contract}}
 
-# The document FastAPI serves still matches the committed contract.
-check-drift:
-    cd {{backend}} && uv run python -m app.check_drift ../{{contract}}
-
 # Every generated artefact is current. Fails if `just generate` would change anything.
 check-generated: generate
     git diff --exit-code -- {{backend}}/app/contract.py {{frontend}}/src/api
@@ -124,4 +120,4 @@ down:
 # ------------------------------------------------------------------------- ci
 
 # Everything continuous integration runs, in order, blocking steps only.
-ci: check-contract check-generated check-lint check-drift coverage e2e
+ci: check-contract check-generated check-lint coverage e2e
