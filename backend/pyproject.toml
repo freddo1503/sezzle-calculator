@@ -1,0 +1,51 @@
+[project]
+name = "calculator-api"
+version = "1.0.0"
+description = "Exact decimal arithmetic over HTTP, implementing the contract in openapi.yaml."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "pydantic",
+    "uvicorn[standard]",
+]
+
+[dependency-groups]
+dev = [
+    "datamodel-code-generator",
+    "httpx",
+    "openapi-spec-validator",
+    "pytest",
+    "pytest-cov",
+    "pyyaml",
+    "ruff",
+    "ty",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers --strict-config"
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+# Generated from the contract, so covering it would measure the generator.
+omit = ["app/contract.py"]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ty.src]
+include = ["app", "tests"]

@@ -88,12 +88,17 @@ fractional digits, in plain notation, with scientific notation excluded because 
 produce it and excluding it leaves one parsing rule instead of two. An oversized operand fails
 as `OPERAND_OUT_OF_RANGE` before any arithmetic runs.
 
-The exponent of `power` carries a tighter bound of its own, under 10000 in magnitude, which is
-why `openapi.yaml` splits exponentiation into its own request shape. The base may be as large as
-any operand, so the exponent is the single input that could otherwise make the server work
-indefinitely. Bounding it in the contract turns a potential timeout into a validation error, and
-because both layers generate from that contract, the bound is written once and enforced on both
-sides.
+**No separate bound guards the exponent of `power`**, and the reason is worth recording because
+the first design had one. Exponentiation looks like the one input that could make the server work
+indefinitely, since the base may be as large as any operand. Measurement says otherwise: the
+decimal context's own exponent range rejects every catastrophic case in **microseconds**, raising
+`Overflow` before any digits are computed. The largest operand the contract allows, raised to
+itself, fails in 0.02 ms.
+
+A contract-level bound would therefore have been machinery protecting nothing, so it was removed
+rather than kept for appearances. Overflow surfaces as `RESULT_OVERFLOW`, which the error model
+already carries. This is the standard-library-first rule of `.claude/rules/principles.md` holding
+up under measurement rather than assumption.
 
 ## 4. Solution strategy
 

@@ -43,8 +43,7 @@ paths:
       summary: Evaluate one arithmetic operation.
       description: |
         The request is a discriminated union on `operation`. The discriminator selects
-        the operand arity: `sqrt` takes one operand, `power` takes a base and a bounded
-        exponent, every other operation takes two.
+        the operand arity: `sqrt` takes one operand, every other operation takes two.
       requestBody:
         required: true
         content:
@@ -133,27 +132,19 @@ components:
       maxLength: 52
       examples: ["0.1", "-42", "3.14159265358979323846"]
 
-    Exponent:
-      type: string
-      title: Exponent
-      description: |
-        The exponent of a `power` operation, bounded to under 10000 in magnitude: the
-        base may be as large as any operand, so an unbounded exponent is the one input
-        that could make the server work indefinitely. Fractional exponents are allowed;
-        a negative base with one yields `UNDEFINED_RESULT`.
-      pattern: '^-?[0-9]{1,4}(\.[0-9]{1,25})?$'
-      maxLength: 31
-      examples: ["2", "0.5", "-3"]
-
     BinaryOperation:
       type: string
       title: BinaryOperation
-      enum: [add, subtract, multiply, divide, percent]
+      enum: [add, subtract, multiply, divide, power, percent]
       description: |
         `percent` is `a / 100 * b`, that is "a percent of b": `percent(20, 50)` is
-        `10`. The context-sensitive postfix percent of physical calculators is not
-        implemented, because its meaning depends on the pending operation and that
-        would put an arithmetic rule in the interface.
+        `10`. The postfix percent of physical calculators is not implemented, because
+        its meaning depends on the pending operation, which would put an arithmetic
+        rule in the interface.
+
+        `power` takes the base then the exponent. No exponent bound is declared: the
+        decimal context's own range rejects a catastrophic exponent in microseconds,
+        so a contract-level bound would be machinery that protects nothing.
 
     BinaryCalculation:
       type: object
@@ -168,27 +159,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Operand"
-          minItems: 2
-          maxItems: 2
-
-    PowerCalculation:
-      type: object
-      title: PowerCalculation
-      description: |
-        Exponentiation, split from the other binary operations so the contract can
-        bound the exponent without bounding every operand.
-      required: [operation, operands]
-      additionalProperties: false
-      properties:
-        operation:
-          type: string
-          const: power
-        operands:
-          type: array
-          description: The base, then the exponent.
-          prefixItems:
-            - $ref: "#/components/schemas/Operand"
-            - $ref: "#/components/schemas/Exponent"
           minItems: 2
           maxItems: 2
 
@@ -212,12 +182,11 @@ components:
     CalculationRequest:
       title: CalculationRequest
       description: |
-        Discriminated on `operation`. Five values map to the two-operand shape, `power`
-        to the bounded-exponent shape, and `sqrt` to the one-operand shape, so operand
-        arity is a property of the contract rather than a check written twice.
+        Discriminated on `operation`. Six values map to the two-operand shape and
+        `sqrt` to the one-operand shape, so operand arity is a property of the contract
+        rather than a check written twice. Rationale in ADR-0003.
       oneOf:
         - $ref: "#/components/schemas/BinaryCalculation"
-        - $ref: "#/components/schemas/PowerCalculation"
         - $ref: "#/components/schemas/UnaryCalculation"
       discriminator:
         propertyName: operation
@@ -227,7 +196,7 @@ components:
           multiply: "#/components/schemas/BinaryCalculation"
           divide: "#/components/schemas/BinaryCalculation"
           percent: "#/components/schemas/BinaryCalculation"
-          power: "#/components/schemas/PowerCalculation"
+          power: "#/components/schemas/BinaryCalculation"
           sqrt: "#/components/schemas/UnaryCalculation"
 
     CalculationResult:
